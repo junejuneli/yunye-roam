@@ -31,13 +31,29 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      # 从 src/ 重新构建，保证线上的 index.html 一定和源码一致
+      - name: Build
+        run: |
+          python3 build.py
+          python3 build.py test
+      # 跑一遍完整游玩流程；不通过就不发布
+      - name: Smoke test
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+          node tools/smoke_test.js
+      - name: Collect site files
+        run: |
+          mkdir _site
+          cp index.html _site/
+          touch _site/.nojekyll
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
-          path: '.'
+          # 只发布成品页面，不把源码和工具目录一起放上去
+          path: '_site'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5

@@ -56,7 +56,7 @@
 
 ## 上线
 
-推送到 `main` 后，GitHub Actions（`.github/workflows/deploy.yml`）会自动从 `src/` 重新构建、跑一遍冒烟测试，通过后发布到 GitHub Pages，地址固定为 <https://junejuneli.github.io/yunye-roam/>。测试不过就不会发布。
+推送到 `main` 后，GitHub Actions（`.github/workflows/static.yml`）会自动从 `src/` 重新构建、跑一遍冒烟测试，通过后发布到 GitHub Pages，地址固定为 <https://junejuneli.github.io/yunye-roam/>。测试不过就不会发布。
 
 `index.html` 本身也是完整的成品：Three.js 已经内联在里面，不请求任何外部资源，放到任意静态托管都能直接访问。
 
