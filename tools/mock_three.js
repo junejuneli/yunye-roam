@@ -14,7 +14,7 @@ class Color{constructor(a,b,c){this.r=1;this.g=1;this.b=1;if(a!==undefined)this.
  copy(c){if(!(c instanceof Color))throw new Error('Color.copy non-color');this.r=c.r;this.g=c.g;this.b=c.b;return this;}clone(){return new Color().copy(this);}
  lerp(c,t){if(!(c instanceof Color))throw new Error('Color.lerp non-color');if(typeof t!=='number'||isNaN(t))throw new Error('lerp NaN');this.r+=(c.r-this.r)*t;this.g+=(c.g-this.g)*t;this.b+=(c.b-this.b)*t;return this;}
  offsetHSL(){return this;}multiplyScalar(s){this.r*=s;this.g*=s;this.b*=s;return this;}}
-class Obj{constructor(){this.position=new V3();this.rotation=new V3();this.scale=new V3(1,1,1);this.quaternion={setFromUnitVectors(){return this;}};this.children=[];this.visible=true;this.matrix={};this.parent=null;this.renderOrder=0;}
+class Obj{constructor(){this.position=new V3();this.rotation=new V3();this.scale=new V3(1,1,1);this.quaternion={setFromUnitVectors(){return this;}};this.children=[];this.userData={};this.visible=true;this.matrix={};this.parent=null;this.renderOrder=0;}
  add(o){if(!(o instanceof Obj))throw new Error('add non-object');this.children.push(o);o.parent=this;return this;}remove(o){const i=this.children.indexOf(o);if(i>=0)this.children.splice(i,1);return this;}
  updateMatrix(){}lookAt(){}traverse(f){f(this);this.children.forEach(c=>c.traverse(f));}}
 class Attr{constructor(a,n){this.array=a;this.itemSize=n;this.count=a.length/n;this.needsUpdate=false;}
@@ -50,6 +50,8 @@ T.PlaneGeometry=class extends Geo{constructor(w,h,ws,hs){super();ws=ws||1;hs=hs|
  for(let j=0;j<=hs;j++)for(let i=0;i<=ws;i++){p[k++]=-w/2+i*w/ws;p[k++]=h/2-j*h/hs;p[k++]=0;}
  this.setAttribute('position',new Attr(p,3));this.setAttribute('normal',new Attr(new Float32Array(n*3).fill(0.577),3));
  const idx=[];for(let j=0;j<hs;j++)for(let i=0;i<ws;i++){const a=i+(ws+1)*j,b=i+(ws+1)*(j+1),c=i+1+(ws+1)*(j+1),d=i+1+(ws+1)*j;idx.push(a,b,d,b,c,d);}this.index={array:new Uint16Array(idx)};}};
-['SphereGeometry','BoxGeometry','CylinderGeometry','ConeGeometry','IcosahedronGeometry','DodecahedronGeometry','OctahedronGeometry','TorusGeometry','RingGeometry','CircleGeometry'].forEach(n=>{T[n]=class extends Geo{constructor(){super();for(let i=0;i<arguments.length;i++)if(typeof arguments[i]==='number'&&isNaN(arguments[i]))throw new Error(n+' NaN arg');this._fill(24);}};});
+['SphereGeometry','BoxGeometry','CylinderGeometry','ConeGeometry','IcosahedronGeometry','DodecahedronGeometry','OctahedronGeometry','TorusGeometry','RingGeometry','CircleGeometry','LatheGeometry','ShapeGeometry'].forEach(n=>{T[n]=class extends Geo{constructor(){super();for(let i=0;i<arguments.length;i++)if(typeof arguments[i]==='number'&&isNaN(arguments[i]))throw new Error(n+' NaN arg');this._fill(24);}};});
+T.Vector2=class{constructor(x,y){this.x=x||0;this.y=y||0;}};
+T.Shape=class{moveTo(){return this;}lineTo(){return this;}quadraticCurveTo(){return this;}};
 window.THREE=T;
 })();
