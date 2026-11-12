@@ -1,5 +1,7 @@
 # 云野漫游
 
+**在线试玩：<https://junejuneli.github.io/yunye-roam/>**　·　[MIT 许可](LICENSE)
+
 单文件 HTML 的 3D 开放世界探索游戏。电脑和手机浏览器打开 `index.html` 就能玩，不需要安装任何东西。
 
 一座岛，三位可以随时切换的旅人，四座等着被点亮的风塔。
@@ -54,7 +56,9 @@
 
 ## 上线
 
-`index.html` 是完整的成品：Three.js 已经内联在里面，不请求任何外部资源。把这一个文件放到任意静态托管（GitHub Pages、Vercel、对象存储、自己的服务器）就能访问。
+推送到 `main` 后，GitHub Actions（`.github/workflows/static.yml`）会自动从 `src/` 重新构建、跑一遍冒烟测试，通过后发布到 GitHub Pages，地址固定为 <https://junejuneli.github.io/yunye-roam/>。测试不过就不会发布。
+
+`index.html` 本身也是完整的成品：Three.js 已经内联在里面，不请求任何外部资源，放到任意静态托管都能直接访问。
 
 ## 开发
 
@@ -92,3 +96,7 @@ node tools/shot.js 场景脚本.js     # 无头浏览器截图，看实际画面
 
 - 游戏逻辑有完整流程的自动测试；画面在无头浏览器的软件渲染下逐项截图检查过。
 - 还没有在真实手机和独立显卡上实测过帧率与手感，数值平衡（敌人血量、首领难度）也需要真人试玩后再调。
+
+## 许可
+
+代码以 [MIT 许可](LICENSE) 开源。`vendor/three.min.js` 是 Three.js r128，同为 MIT 许可，版权归其作者所有（见 `vendor/THREE-LICENSE`）。
