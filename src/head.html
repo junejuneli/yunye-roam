@@ -148,6 +148,11 @@ body.touch #bRun{display:grid}
 #bSwap .pt{width:32px;height:32px;box-shadow:none}
 #bSwap .pt .g{font-size:15px}
 #bSwap .l{font-family:var(--display);font-size:16px;letter-spacing:.2em}
+#lines{position:fixed;inset:-20%;pointer-events:none;opacity:0;--lc:#fff;
+  background:repeating-conic-gradient(from 0deg,transparent 0 3.2deg,var(--lc) 3.5deg 3.9deg,transparent 4.2deg 7deg,var(--lc) 7.2deg 7.4deg,transparent 7.6deg 11deg);
+  -webkit-mask:radial-gradient(circle,transparent 30%,#000 72%);mask:radial-gradient(circle,transparent 30%,#000 72%);mix-blend-mode:screen}
+#lines.on{animation:sl .5s ease-out}
+@keyframes sl{0%{opacity:.75;transform:scale(1) rotate(0deg)}60%{opacity:.4}100%{opacity:0;transform:scale(1.25) rotate(3deg)}}
 #flash{position:fixed;inset:0;pointer-events:none;opacity:0;mix-blend-mode:screen}
 #flash.on{animation:fl .45s ease-out}
 @keyframes fl{0%{opacity:.55}100%{opacity:0}}
@@ -250,7 +255,7 @@ body.booting #title{background:none}
   .pane{max-height:46vh}.card{padding:12px 16px;gap:8px}.card h2{font-size:19px}#pt{width:46px;height:46px}#combo{top:30%}#cut{top:26%}}
 @media (max-width:640px){#pRow{grid-template-columns:1fr}.pc{flex-direction:row;flex-wrap:wrap;padding:8px}.pf{width:84px;height:110px}.pd{flex-basis:100%}}
 @media (max-width:560px){.stats{grid-template-columns:repeat(2,1fr)}#boss{top:calc(var(--st) + 128px);width:min(300px,70vw)}#combo{right:var(--sr);top:36%}}
-@media (prefers-reduced-motion:reduce){.toast{animation:none}#bUlt.full,#mark i,body.lowhp #vig{animation:none}}
+@media (prefers-reduced-motion:reduce){.toast{animation:none}#bUlt.full,#mark i,body.lowhp #vig{animation:none}#lines.on,#flash.on{animation:none}}
 </style>
 
 <canvas id="c" tabindex="0" aria-label="云野漫游 游戏画面"></canvas>
@@ -285,7 +290,7 @@ body.booting #title{background:none}
   <button id="menuBtn" class="btn tb" type="button" aria-label="菜单">☰</button>
   <button id="mapBtn" class="btn tb" type="button" aria-label="地图">图</button>
 </div>
-<div id="vig"></div><div id="flash"></div>
+<div id="vig"></div><div id="flash"></div><div id="lines"></div>
 <div id="cut"><div class="pt"><span class="g"></span><img alt="" hidden></div><div><b></b><span></span></div></div>
 <div id="fade"><div><h3>倒下了</h3><p>风会把你送回上一个落脚点</p></div></div>
 

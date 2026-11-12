@@ -153,6 +153,11 @@ body.touch #bRun{display:grid}
 #bSwap .pt{width:32px;height:32px;box-shadow:none}
 #bSwap .pt .g{font-size:15px}
 #bSwap .l{font-family:var(--display);font-size:16px;letter-spacing:.2em}
+#lines{position:fixed;inset:-20%;pointer-events:none;opacity:0;--lc:#fff;
+  background:repeating-conic-gradient(from 0deg,transparent 0 3.2deg,var(--lc) 3.5deg 3.9deg,transparent 4.2deg 7deg,var(--lc) 7.2deg 7.4deg,transparent 7.6deg 11deg);
+  -webkit-mask:radial-gradient(circle,transparent 30%,#000 72%);mask:radial-gradient(circle,transparent 30%,#000 72%);mix-blend-mode:screen}
+#lines.on{animation:sl .5s ease-out}
+@keyframes sl{0%{opacity:.75;transform:scale(1) rotate(0deg)}60%{opacity:.4}100%{opacity:0;transform:scale(1.25) rotate(3deg)}}
 #flash{position:fixed;inset:0;pointer-events:none;opacity:0;mix-blend-mode:screen}
 #flash.on{animation:fl .45s ease-out}
 @keyframes fl{0%{opacity:.55}100%{opacity:0}}
@@ -255,7 +260,7 @@ body.booting #title{background:none}
   .pane{max-height:46vh}.card{padding:12px 16px;gap:8px}.card h2{font-size:19px}#pt{width:46px;height:46px}#combo{top:30%}#cut{top:26%}}
 @media (max-width:640px){#pRow{grid-template-columns:1fr}.pc{flex-direction:row;flex-wrap:wrap;padding:8px}.pf{width:84px;height:110px}.pd{flex-basis:100%}}
 @media (max-width:560px){.stats{grid-template-columns:repeat(2,1fr)}#boss{top:calc(var(--st) + 128px);width:min(300px,70vw)}#combo{right:var(--sr);top:36%}}
-@media (prefers-reduced-motion:reduce){.toast{animation:none}#bUlt.full,#mark i,body.lowhp #vig{animation:none}}
+@media (prefers-reduced-motion:reduce){.toast{animation:none}#bUlt.full,#mark i,body.lowhp #vig{animation:none}#lines.on,#flash.on{animation:none}}
 </style>
 </head>
 <body>
@@ -293,7 +298,7 @@ body.booting #title{background:none}
   <button id="menuBtn" class="btn tb" type="button" aria-label="菜单">☰</button>
   <button id="mapBtn" class="btn tb" type="button" aria-label="地图">图</button>
 </div>
-<div id="vig"></div><div id="flash"></div>
+<div id="vig"></div><div id="flash"></div><div id="lines"></div>
 <div id="cut"><div class="pt"><span class="g"></span><img alt="" hidden></div><div><b></b><span></span></div></div>
 <div id="fade"><div><h3>倒下了</h3><p>风会把你送回上一个落脚点</p></div></div>
 
@@ -464,7 +469,73 @@ const PT_VS=[
 'attribute float aSize;attribute vec4 aCol;varying vec4 vCol;uniform float uScale;',
 'void main(){vCol=aCol;vec4 mv=modelViewMatrix*vec4(position,1.0);',
 '  gl_PointSize=aSize*uScale/max(-mv.z,0.1);gl_Position=projectionMatrix*mv;}'].join('\n');
-const PT_FS='varying vec4 vCol;void main(){float d=length(gl_PointCoord-0.5);float a=smoothstep(0.5,0.05,d);gl_FragColor=vec4(vCol.rgb,vCol.a*a);}';
+/* 粒子：柔光圆点叠一个四芒星 */
+const PT_FS='varying vec4 vCol;void main(){vec2 c=gl_PointCoord-0.5;float d=length(c);vec2 q=abs(c);float a=smoothstep(0.5,0.05,d)*0.75+max(0.0,1.0-(q.x*q.y*110.0+d*2.2));gl_FragColor=vec4(vCol.rgb+a*0.25,vCol.a*min(a,1.0));}';
+/* ===== 技能特效着色器 ===== */
+const FX_NOISE=[
+'float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}',
+'float n2(vec2 p){vec2 i=floor(p);vec2 f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(h21(i),h21(i+vec2(1.0,0.0)),f.x),mix(h21(i+vec2(0.0,1.0)),h21(i+vec2(1.0,1.0)),f.x),f.y);}',
+'float fb(vec2 p){return n2(p)*0.6+n2(p*2.1+3.7)*0.3+n2(p*4.3+9.1)*0.1;}',
+'float ln(float x,float c,float w){return smoothstep(w,0.0,abs(x-c));}',''].join('\n');
+const FX_HEAD='uniform vec3 uCol;uniform vec3 uCol2;uniform float uTime;uniform float uA;uniform float uP;uniform float uKind;varying vec2 vUv;\n'+FX_NOISE;
+const FX_VS='varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}';
+/* 法阵：外圈符文带 + 各属性的图案（炎：六芒星，风：旋臂，霜：雪花） */
+const CIRCLE_FS=FX_HEAD+[
+'void main(){vec2 p=vUv*2.0-1.0;float r=length(p);if(r>1.0)discard;float a=atan(p.y,p.x);float t=uTime;',
+'  float m=ln(r,0.97,0.012)+ln(r,0.86,0.008)+ln(r,0.555,0.008)+ln(r,0.5,0.006)*0.6;',
+'  float ra=a+t*0.35;float cell=floor(ra*7.0028);float f=fract(ra*7.0028);float hh=h21(vec2(cell,3.0));',
+'  m+=step(0.885,r)*step(r,0.945)*step(0.2,f)*step(f,0.8)*step(0.3,hh)*(0.35+0.4*step(0.5,fract(hh*7.0+(r-0.885)*33.0)));',
+'  m+=step(0.575,r)*step(r,0.62)*step(0.5,fract((a-t*0.6)*1.9099))*0.7;',
+'  float fig=0.0;',
+'  if(uKind<0.5){',
+'    for(int k=0;k<2;k++){float aa=a+t*0.5+float(k)*1.0472;float d=cos(floor(0.5+aa/2.0944)*2.0944-aa)*r;fig+=ln(d,0.25,0.012);}',
+'    fig*=step(r,0.5);fig+=ln(r,0.2,0.01)+step(r,0.2)*0.25*(0.5+0.5*sin(a*8.0-t*6.0));',
+'    fig+=smoothstep(0.6,1.0,fb(vec2(a*3.0,r*4.0-t*1.5)))*step(0.62,r)*step(r,0.86)*0.55;',
+'  }else if(uKind<1.5){',
+'    fig=smoothstep(0.7,1.0,sin(a*3.0+r*9.0-t*5.0))*step(r,0.5)*smoothstep(0.04,0.2,r);',
+'    fig+=smoothstep(0.86,1.0,sin(a*6.0-r*14.0+t*3.0))*step(0.62,r)*step(r,0.86)*0.7;',
+'  }else{',
+'    float aa=abs(mod(a+t*0.2,1.0472)-0.5236);float x=cos(aa)*r;float y=sin(aa)*r;',
+'    fig=ln(y,0.0,0.012)*step(x,0.5);',
+'    for(int k=0;k<3;k++){float x0=0.14+float(k)*0.12;float d=abs(y*0.5-(x-x0)*0.866);float al=(x-x0)*0.5+y*0.866;fig+=ln(d,0.0,0.01)*step(0.0,al)*step(al,0.15-float(k)*0.03);}',
+'    fig+=ln(cos(aa)*r,0.5,0.01)*0.0+ln(r,0.08,0.01);',
+'    fig+=step(0.985,h21(floor(p*26.0)+floor(t*5.0)))*step(r,0.86)*0.9;',
+'  }',
+'  float rev=smoothstep(uP,uP-0.1,r);float glow=(1.0-r)*0.16;float s=clamp(m+fig,0.0,1.4);',
+'  gl_FragColor=vec4(mix(uCol,uCol2,clamp(s*0.6+(1.0-r)*0.3,0.0,1.0)),clamp(s+glow,0.0,1.0)*uA*rev);}'].join('\n');
+/* 月牙刀光／风带：u 沿长度，v 横向；uP 是刀头走到哪儿了 */
+const TRAIL_FS=FX_HEAD+[
+'void main(){float u=vUv.x;float v=vUv.y;float w=smoothstep(uP-0.75,uP,u)*step(u,uP);',
+'  float prof=smoothstep(1.0-w,1.0-w+0.3,v)*smoothstep(1.0,0.9,v);',
+'  float n=fb(vec2(u*16.0-uTime*3.0,v*4.0));',
+'  float a=w*prof*(0.45+0.8*n)+smoothstep(0.86,0.97,v)*smoothstep(1.0,0.97,v)*w*0.9;',
+'  vec3 col=mix(uCol,uCol2,pow(v,4.0)*w);gl_FragColor=vec4(col,clamp(a,0.0,1.0)*uA);}'].join('\n');
+/* 冲击环：带噪声的软边 */
+const RING_FS=FX_HEAD+[
+'void main(){float v=vUv.y;float n=n2(vec2(vUv.x*46.0,uTime*4.0));float a=pow(sin(3.14159*v),1.6)*(0.55+0.6*n)+smoothstep(0.82,0.96,v)*smoothstep(1.0,0.96,v);',
+'  gl_FragColor=vec4(mix(uCol,uCol2,smoothstep(0.6,1.0,v)),clamp(a,0.0,1.0)*uA);}'].join('\n');
+/* 火焰／寒雾／气柱：向上翻卷、被噪声侵蚀的一面墙 */
+const FLAME_FS=FX_HEAD+[
+'void main(){float y=vUv.y;float f=fb(vec2(vUv.x*uKind+uP,y*2.2-uTime*2.6))*0.7+fb(vec2(vUv.x*uKind*2.0-uP,y*4.0-uTime*4.2))*0.3;',
+'  float a=smoothstep(y*1.1+0.16,y*1.1+0.5,f+0.22*(1.0-y))*smoothstep(0.0,0.05,y)*(1.0-smoothstep(0.6,1.0,y));',
+'  float h=f+(1.0-y)*0.45;vec3 col=mix(uCol,uCol2,smoothstep(0.35,0.9,h));col=mix(col,vec3(1.0),smoothstep(0.95,1.3,h)*0.45);',
+'  gl_FragColor=vec4(col,a*uA);}'].join('\n');
+/* 龙卷 */
+const TWIST_FS=FX_HEAD+[
+'void main(){float s=sin(vUv.x*18.85+vUv.y*10.0-uTime*9.0+fb(vUv*vec2(6.0,3.0))*3.0);float s2=sin(vUv.x*31.42-vUv.y*7.0-uTime*6.0);',
+'  float a=(smoothstep(0.3,1.0,s)*0.6+smoothstep(0.6,1.0,s2)*0.3+0.07)*smoothstep(0.0,0.1,vUv.y)*(1.0-smoothstep(0.5,1.0,vUv.y));',
+'  gl_FragColor=vec4(mix(uCol,uCol2,smoothstep(0.75,1.0,s)),a*uA);}'].join('\n');
+/* 冰晶穹顶：菲涅尔边光 + 格线 + 闪点 */
+const DOME_VS='varying vec3 vN;varying vec3 vV;varying vec3 vP;void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);vN=normalize(normalMatrix*normal);vV=normalize(-mv.xyz);vP=position;gl_Position=projectionMatrix*mv;}';
+const DOME_FS='uniform vec3 uCol;uniform vec3 uCol2;uniform float uTime;uniform float uA;varying vec3 vN;varying vec3 vV;varying vec3 vP;\n'+FX_NOISE+[
+'void main(){float fr=pow(1.0-abs(dot(normalize(vN),normalize(vV))),2.2);float an=atan(vP.z,vP.x);',
+'  float g=max(smoothstep(0.93,1.0,abs(sin(an*9.0+vP.y*5.0))),max(smoothstep(0.93,1.0,abs(sin(an*9.0-vP.y*5.0))),smoothstep(0.95,1.0,abs(sin(vP.y*12.0-uTime*0.8)))));',
+'  float sp=step(0.988,h21(floor(vec2(an*14.0,vP.y*22.0))+floor(uTime*7.0)));',
+'  float a=(fr*0.8+g*0.16*(0.35+fr)+sp*0.7)*uA*smoothstep(0.0,0.06,vP.y);',
+'  gl_FragColor=vec4(mix(uCol,uCol2,fr*0.7+sp),a);}'].join('\n');
+/* 剑刃拖尾 */
+const RIB_VS='attribute float aA;varying float vA;void main(){vA=aA;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}';
+const RIB_FS='uniform vec3 uCol;varying float vA;void main(){gl_FragColor=vec4(mix(uCol,vec3(1.0),vA*vA*0.7),vA);}';
 function fail(msg){const e=document.getElementById('err');if(msg)e.innerHTML=msg;e.hidden=false;}
 if(!window.THREE){fail();return;}
 function start(saved){
@@ -928,18 +999,79 @@ function updateAmbient(dt,t,cx,cy,cz,mode,strength){
   amGeo.attributes.position.needsUpdate=true;amGeo.attributes.aCol.needsUpdate=true;amGeo.attributes.aSize.needsUpdate=true;
 }
 
-/* ===== 刀光与冲击环 ===== */
-const arcGeo=(function(){const g=new THREE.RingGeometry(1.1,2.5,24,1,-Math.PI/2-1.15,2.3);g.rotateX(-Math.PI/2);return g;})();
+/* ===== 着色器特效：刀光、冲击环、法阵、火墙、光柱、穹顶、风带 ===== */
 const ringGeo=(function(){const g=new THREE.RingGeometry(0.82,1,48);g.rotateX(-Math.PI/2);return g;})();
-const fxs=[];
-function fxMesh(geo,hex){for(let i=0;i<fxs.length;i++){const f=fxs[i];if(f.t<=0&&f.m.geometry===geo){f.m.material.color.set(hex);return f;}}
-  const f={m:new THREE.Mesh(geo,glowy(hex,1)),t:0,d:1,kind:0,s0:1,s1:1,r0:0,r1:0};f.m.visible=false;f.m.renderOrder=2;scene.add(f.m);fxs.push(f);return f;}
-function slashArc(x,y,z,face,dir,scale,hex){const f=fxMesh(arcGeo,hex);f.t=f.d=0.2;f.kind=0;f.s0=scale*0.85;f.s1=scale*1.2;f.r0=face-0.7*dir;f.r1=face+0.5*dir;
-  f.m.position.set(x,y,z);f.m.rotation.set(0,f.r0,0.25*dir);f.m.visible=true;}
-function shockRing(x,y,z,r,hex,dur){const f=fxMesh(ringGeo,hex);f.t=f.d=dur||0.5;f.kind=1;f.s0=0.3;f.s1=r;f.m.position.set(x,y,z);f.m.rotation.set(0,0,0);f.m.visible=true;}
-function updateFx(dt){for(let i=0;i<fxs.length;i++){const f=fxs[i];if(f.t<=0)continue;f.t-=dt;
-  if(f.t<=0){f.m.visible=false;continue;}const k=1-f.t/f.d,s=lerp(f.s0,f.s1,1-(1-k)*(1-k));
-  f.m.scale.set(s,1,s);f.m.material.opacity=(1-k)*0.9;if(f.kind===0)f.m.rotation.y=lerp(f.r0,f.r1,k);}}
+/* 极坐标 UV 的弧面：u 沿弧线，v 从内到外 */
+function arcGeoP(r0,r1,span,seg){const n=seg+1,pos=new Float32Array(n*6),uv=new Float32Array(n*4),idx=[];
+  for(let i=0;i<n;i++){const a=-span/2+span*i/seg,sx=Math.sin(a),cz=Math.cos(a);pos.set([sx*r0,0,cz*r0,sx*r1,0,cz*r1],i*6);uv.set([i/seg,0,i/seg,1],i*4);
+    if(i<seg){const k=i*2;idx.push(k,k+1,k+2,k+1,k+3,k+2);}}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('uv',new THREE.BufferAttribute(uv,2));g.setIndex(idx);return g;}
+const arcGeoA=arcGeoP(0.9,2.6,2.7,28),arcGeoFull=arcGeoP(0.55,1,TAU,56),ringGeoP=arcGeoP(0.7,1,TAU,56);
+const circleGeo=(function(){const g=new THREE.PlaneGeometry(2,2);g.rotateX(-Math.PI/2);return g;})();
+const wallGeo=(function(){const g=new THREE.CylinderGeometry(1,1,1,40,1,true);g.translate(0,0.5,0);return g;})();
+const coneWallGeo=(function(){const g=new THREE.CylinderGeometry(0.55,1,1,24,1,true);g.translate(0,0.5,0);return g;})();
+const domeGeo=new THREE.SphereGeometry(1,36,14,0,TAU,0,Math.PI/2);
+/* 螺旋风带 */
+const helixGeo=(function(){const seg=64,n=seg+1,pos=new Float32Array(n*6),uv=new Float32Array(n*4),idx=[];
+  for(let i=0;i<n;i++){const t=i/seg,a=t*TAU*2.2,r=1-t*0.35,y=t;pos.set([Math.cos(a)*r,y,Math.sin(a)*r,Math.cos(a)*r,y+0.09,Math.sin(a)*r],i*6);uv.set([t,0,t,1],i*4);
+    if(i<seg){const k=i*2;idx.push(k,k+1,k+2,k+1,k+3,k+2);}}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('uv',new THREE.BufferAttribute(uv,2));g.setIndex(idx);return g;})();
+function fxMat(fs,vs){return new THREE.ShaderMaterial({uniforms:{uTime:windU.uTime,uCol:{value:C(0xffffff)},uCol2:{value:C(0xffffff)},uA:{value:1},uP:{value:1},uKind:{value:0}},
+  vertexShader:vs||FX_VS,fragmentShader:fs,transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending});}
+const FXS=[],FXDEF={arc:[arcGeoA,TRAIL_FS],arcF:[arcGeoFull,TRAIL_FS],ring:[ringGeoP,RING_FS],circle:[circleGeo,CIRCLE_FS],wall:[wallGeo,FLAME_FS],cone:[coneWallGeo,FLAME_FS],
+  dome:[domeGeo,DOME_FS,DOME_VS],helix:[helixGeo,TRAIL_FS],twist:[wallGeo,TWIST_FS]};
+const lighten=(hex,k)=>{tc2.set(hex);tc2.r+=(1-tc2.r)*k;tc2.g+=(1-tc2.g)*k;tc2.b+=(1-tc2.b)*k;return tc2;};
+function fx(kind,x,y,z,hex,dur,o){let f=null;for(let i=0;i<FXS.length;i++)if(FXS[i].t<=0&&FXS[i].kind===kind){f=FXS[i];break;}
+  if(!f){if(FXS.length>110)return null;const D=FXDEF[kind];f={m:new THREE.Mesh(D[0],fxMat(D[1],D[2])),kind:kind,t:0,U:null};f.U=f.m.material.uniforms;f.m.visible=false;f.m.renderOrder=2;f.m.frustumCulled=false;scene.add(f.m);FXS.push(f);}
+  f.t=f.d=dur;f.o=o||{};f.delay=f.o.delay||0;f.U.uCol.value.set(hex);f.U.uCol2.value.copy(f.o.hex2!==undefined?tc2.set(f.o.hex2):lighten(hex,0.75));f.U.uA.value=0;f.U.uP.value=0;f.U.uKind.value=f.o.kind||0;
+  f.m.position.set(x,y,z);f.m.rotation.set(f.o.rx||0,f.o.ry||0,f.o.rz||0);f.m.scale.set(1,1,1);f.m.visible=false;return f;}
+function slashArc(x,y,z,face,dir,scale,hex){fx('arc',x,y,z,hex,0.26,{ry:face,rz:0.25*dir,s:scale,dir:dir});}
+function slashFull(x,y,z,R,hex,dur,tilt){fx('arcF',x,y,z,hex,dur||0.35,{s:R,rz:tilt||0,ry:Math.random()*TAU,dir:1});}
+function shockRing(x,y,z,r,hex,dur){fx('ring',x,y,z,hex,dur||0.5,{s0:0.3,s1:r});}
+function magicCircle(x,y,z,R,kind,hex,dur,follow){return fx('circle',x,y+0.14,z,hex,dur,{s:R,kind:kind,follow:follow});}
+function fireWall(x,y,z,R0,R1,h,hex,hex2,dur,delay){fx('wall',x,y,z,hex,dur,{s0:R0,s1:R1,h:h,hex2:hex2,kind:Math.max(4,Math.round(R1*2.2)),delay:delay});}
+function pillar(x,y,z,r,h,hex,dur,delay){fx('cone',x,y,z,hex,dur||0.5,{s0:r,s1:r*0.45,h:h,kind:5,delay:delay,hex2:lighten(hex,0.6).getHex()});}
+function dome(x,y,z,R,hex,dur){fx('dome',x,y,z,hex,dur,{s:R});}
+function helix(x,y,z,R,h,hex,dur,delay,spin){fx('helix',x,y,z,hex,dur,{s:R,h:h,delay:delay,spin:spin||7});}
+function updateFx(dt){
+  const dim=0.62+0.38*DN.night; /* 白天背景亮，叠加特效要收一点才不会糊成一片白 */
+  for(let i=0;i<FXS.length;i++){const f=FXS[i];if(f.t<=0)continue;if(f.delay>0){f.delay-=dt;continue;}
+    f.t-=dt;if(f.t<=0){f.m.visible=false;continue;}f.m.visible=true;const o=f.o,e=f.d-f.t,k=e/f.d,ease=1-(1-k)*(1-k),U=f.U,m=f.m;
+    if(f.kind==='arc'||f.kind==='arcF'){const s=o.s*(0.9+0.25*ease);m.scale.set(s*(o.dir||1),s,s);U.uP.value=k*1.9;U.uA.value=Math.min(1,f.t/f.d*2.2);}
+    else if(f.kind==='ring'){const s=lerp(o.s0,o.s1,ease);m.scale.set(s,1,s);U.uA.value=(1-k)*0.95;}
+    else if(f.kind==='circle'){m.scale.set(o.s,1,o.s);U.uP.value=Math.min(1.15,e/0.3*1.15);U.uA.value=Math.min(1,f.t/0.35)*0.85*dim;if(o.follow)m.position.set(o.follow.x,o.follow.y+0.14,o.follow.z);}
+    else if(f.kind==='wall'||f.kind==='cone'){const r=lerp(o.s0,o.s1,ease);m.scale.set(r,o.h*(0.5+0.5*Math.min(1,e/0.12)),r);U.uA.value=Math.pow(1-k,0.6)*(f.kind==='cone'?0.5:0.8)*dim;U.uP.value=i*1.7;}
+    else if(f.kind==='dome'){const s=o.s*Math.min(1,0.2+e/0.25);m.scale.set(s,s,s);U.uA.value=Math.min(1,e/0.2,f.t/0.5)*dim;}
+    else if(f.kind==='helix'){m.scale.set(o.s,o.h,o.s);m.rotation.y+=dt*o.spin;U.uP.value=k*2;U.uA.value=Math.min(1,f.t/f.d*2.5);}
+    else if(f.kind==='twist'){U.uA.value=o.a===undefined?1:o.a;}
+  }
+}
+/* 星芒：命中和暴击时的十字闪光 */
+const starTex=(function(){const cv=document.createElement('canvas');cv.width=cv.height=128;const x=cv.getContext('2d');
+  if(x&&x.createRadialGradient){x.translate(64,64);for(let k=0;k<4;k++){x.rotate(Math.PI/4);const L=k%2?60:34,g=x.createLinearGradient(-L,0,L,0);g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(0.5,'rgba(255,255,255,1)');g.addColorStop(1,'rgba(255,255,255,0)');
+      x.fillStyle=g;x.beginPath();x.moveTo(-L,0);x.quadraticCurveTo(0,k%2?5:3,L,0);x.quadraticCurveTo(0,k%2?-5:-3,-L,0);x.fill();}
+    const g=x.createRadialGradient(0,0,0,0,0,26);g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(-26,-26,52,52);}
+  return new THREE.CanvasTexture(cv);})();
+const stars=[];
+function star(x,y,z,hex,size,dur){let f=null;for(let i=0;i<stars.length;i++)if(stars[i].t<=0){f=stars[i];break;}
+  if(!f){if(stars.length>30)return;f={s:new THREE.Sprite(new THREE.SpriteMaterial({map:starTex,color:hex,blending:THREE.AdditiveBlending,depthWrite:false,depthTest:false,transparent:true})),t:0};f.s.visible=false;f.s.renderOrder=5;scene.add(f.s);stars.push(f);}
+  f.s.material.color.set(hex);f.s.material.rotation=Math.random()*1.5;f.t=f.d=dur||0.22;f.size=size;f.s.position.set(x,y,z);f.s.visible=true;f.s.scale.set(size*0.3,size*0.3,1);}
+/* 剑刃拖尾：记下最近十几帧剑身的位置，连成一条带子 */
+const RB={N:16,hist:[],live:false,pos:null,al:null,m:null,U:null};
+(function(){const N=RB.N,pos=RB.pos=new Float32Array(N*6),al=RB.al=new Float32Array(N*2),idx=[];for(let i=0;i<N-1;i++){const k=i*2;idx.push(k,k+1,k+2,k+1,k+3,k+2);}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('aA',new THREE.BufferAttribute(al,1));g.setIndex(idx);
+  RB.U={uCol:{value:C(0xffffff)}};RB.m=new THREE.Mesh(g,new THREE.ShaderMaterial({uniforms:RB.U,vertexShader:RIB_VS,fragmentShader:RIB_FS,transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending}));
+  RB.m.frustumCulled=false;RB.m.renderOrder=3;RB.m.visible=false;scene.add(RB.m);for(let i=0;i<N;i++)RB.hist.push([0,0,0,0,0,0,0]);})();
+function ribbonStep(dt,blade,on,hex){
+  if(!blade||!blade.localToWorld)return;const N=RB.N,H0=RB.hist;
+  if(on){blade.updateMatrixWorld(true);tv.set(0,0.2,0);blade.localToWorld(tv);tv2.set(0,1.12,0);blade.localToWorld(tv2);
+    if(!RB.live){for(let i=0;i<N;i++){const h=H0[i];h[0]=tv.x;h[1]=tv.y;h[2]=tv.z;h[3]=tv2.x;h[4]=tv2.y;h[5]=tv2.z;h[6]=0;}}
+    const last=H0.pop();last[0]=tv.x;last[1]=tv.y;last[2]=tv.z;last[3]=tv2.x;last[4]=tv2.y;last[5]=tv2.z;last[6]=1;H0.unshift(last);RB.U.uCol.value.set(hex);}
+  RB.live=on;let any=false;
+  for(let i=0;i<N;i++){const h=H0[i];h[6]=Math.max(0,h[6]-dt*(on?3.4:6));if(h[6]>0)any=true;RB.pos.set([h[0],h[1],h[2],h[3],h[4],h[5]],i*6);const a=h[6]*(1-i/N);RB.al[i*2]=a*0.15;RB.al[i*2+1]=a;}
+  RB.m.visible=any;if(any){RB.m.geometry.attributes.position.needsUpdate=true;RB.m.geometry.attributes.aA.needsUpdate=true;}
+}
+function speedLines(css){const e=document.getElementById('lines');if(!e)return;e.style.setProperty('--lc',css||'#fff');e.classList.remove('on');void e.offsetWidth;e.classList.add('on');}
 
 /* ===== 技能特效：闪光、地刺、光柱、残影、延时 ===== */
 const flashes=[];
@@ -956,11 +1088,6 @@ function spikeFx(x,y,z,h,r,kind,hex,dur,delay,tx,tz){let s=null;for(let i=0;i<sp
 function spikeRing(x,z,R,n,h,r,kind,hex,dur,stagger,lean){
   for(let i=0;i<n;i++){const a=i/n*TAU+Math.random()*0.3,px=x+Math.cos(a)*R,pz=z+Math.sin(a)*R,gy=Math.max(groundH(px,pz),WATER);
     spikeFx(px,gy,pz,h*(0.7+Math.random()*0.6),r*(0.8+Math.random()*0.4),kind,hex,dur,i*(stagger||0),Math.sin(a)*(lean||0.3),-Math.cos(a)*(lean||0.3));}}
-const pillarGeo=(function(){const g=new THREE.CylinderGeometry(1,1,1,16,1,true);g.translate(0,0.5,0);return g;})();
-const pillars=[];
-function pillar(x,y,z,r,h,hex,dur){let p=null;for(let i=0;i<pillars.length;i++)if(pillars[i].t<=0){p=pillars[i];break;}
-  if(!p){if(pillars.length>16)return;p={m:new THREE.Mesh(pillarGeo,glowy(hex,0.6)),t:0};p.m.visible=false;p.m.renderOrder=2;scene.add(p.m);pillars.push(p);}
-  p.m.material.color.set(hex);p.t=p.d=dur||0.5;p.r=r;p.h=h;p.m.position.set(x,y,z);p.m.visible=true;}
 const streakGeo=(function(){const g=new THREE.PlaneGeometry(1,1);g.rotateX(-Math.PI/2);return g;})();
 const streaks=[];
 function streak(x0,z0,x1,z1,y,w,hex,dur){let s=null;for(let i=0;i<streaks.length;i++)if(streaks[i].t<=0){s=streaks[i];break;}
@@ -977,7 +1104,7 @@ function updateFx2(dt){
   for(let i=0;i<spikes.length;i++){const s=spikes[i];if(s.t<=0)continue;if(s.delay>0){s.delay-=dt;continue;}
     s.t-=dt;if(s.t<=0){s.m.visible=false;continue;}s.m.visible=true;const e=s.d-s.t,up=Math.min(1,e/0.12),down=Math.min(1,s.t/0.3),k=(1-(1-up)*(1-up))*down;
     s.m.scale.set(s.r*(0.6+0.4*down),Math.max(0.01,s.h*k*(1+0.15*Math.max(0,1-e/0.25))),s.r*(0.6+0.4*down));if(s.kind)s.m.material.opacity=0.85*down;}
-  for(let i=0;i<pillars.length;i++){const p=pillars[i];if(p.t<=0)continue;p.t-=dt;if(p.t<=0){p.m.visible=false;continue;}const k=p.t/p.d,r=p.r*(0.25+0.75*k);p.m.scale.set(r,p.h*(1.4-0.4*k),r);p.m.material.opacity=0.3*k;}
+  for(let i=0;i<stars.length;i++){const f=stars[i];if(f.t<=0)continue;f.t-=dt;if(f.t<=0){f.s.visible=false;continue;}const k=1-f.t/f.d,sc=f.size*(0.3+0.7*Math.sin(Math.min(1,k*1.6)*Math.PI*0.5));f.s.scale.set(sc,sc,1);f.s.material.opacity=1-k*k;f.s.material.rotation+=dt*2;}
   for(let i=0;i<streaks.length;i++){const s=streaks[i];if(s.t<=0)continue;s.t-=dt;if(s.t<=0){s.m.visible=false;continue;}const k=s.t/s.d;s.m.scale.set(s.w*k,1,s.l);s.m.material.opacity=0.85*k;}
   for(let i=laters.length-1;i>=0;i--){const l=laters[i];l.t-=dt;if(l.t<=0){laters.splice(i,1);l.fn();}}
 }
@@ -1575,6 +1702,7 @@ function fmtD(d){return d%1?d.toFixed(1):String(d);}
 function freezeEnemy(e,sec){
   if(!e.alive)return;
   if(e.type==='boss'){floatText(e.p.x,e.p.y+5,e.p.z,'免疫','block');return;}
+  if(e.frozen<=0)star(e.p.x,eCy(e),e.p.z,0xbfeeff,4.5,0.35);
   e.frozen=Math.max(e.frozen,sec*(e.type==='aqua'?1.6:1));if(e.type==='ember')e.doused=9;
   if(e.st==='aim'||e.st==='dive')e.st='hover';
 }
@@ -1595,7 +1723,7 @@ function damageEnemy(e,d,kx,kz,o){
   d=Math.max(0.5,Math.round(d*2)/2);
   e.hp-=d;e.flash=0.14;
   floatText(e.p.x,cy+e.r*0.7,e.p.z,(tag?tag+' ':'')+fmtD(d),crit?'crit':(tag==='格挡'?'block':''));
-  burst(e.p.x,cy,e.p.z,8,5,0xffffff,0.35,0.3,1);flash(e.p.x,cy,e.p.z,crit?0xffe2a0:0xffffff,crit?4.5:2.4,0.16);
+  burst(e.p.x,cy,e.p.z,8,5,0xffffff,0.35,0.3,1);flash(e.p.x,cy,e.p.z,crit?0xffe2a0:0xffffff,crit?4.5:2.4,0.16);star(e.p.x,cy,e.p.z,crit?0xffe9b0:0xffffff,crit?7:3.4,crit?0.3:0.2);
   if(crit||o.heavy)hitStop(crit?0.07:0.04);
   if(!e.heavy&&e.frozen<=0){e.v.x=kx*7;e.v.z=kz*7;if(!e.fly&&e.grounded){e.vy=5;e.grounded=false;}}
   if(o.freeze)freezeEnemy(e,o.freeze);
@@ -1783,10 +1911,10 @@ const SHOT={wind:{sp:30,life:0.8,col:0x9ff5e0},ice:{sp:22,life:1.4,col:0xaee9ff}
 function shoot(kind,x,y,z,dx,dy,dz,target){
   let s=null;for(let i=0;i<shots.length;i++)if(!shots[i].on&&shots[i].kind===kind){s=shots[i];break;}
   if(!s){const g=new THREE.Group();let m;
-    if(kind==='wind'){m=new THREE.Mesh(SPH,basic(0xd6fff3));m.scale.set(0.8,0.09,0.28);g.add(m);g.add(glowSprite(0x7ff5d8,2.4,0.7));}
-    else if(kind==='ice'){m=new THREE.Mesh(octGeo,basic(0xe2f8ff));m.scale.set(0.17,0.17,0.45);g.add(m);g.add(glowSprite(0x8fdcff,2.2,0.85));}
-    else if(kind==='frost'){m=new THREE.Mesh(octGeo,basic(0xf0fbff));m.scale.set(0.3,0.3,0.7);g.add(m);g.add(glowSprite(0x8fdcff,3.4,0.85));}
-    else{m=new THREE.Mesh(SPH,basic(0xf3c6ff));m.scale.setScalar(0.26);g.add(m);g.add(glowSprite(0xc070ff,2.6,0.85));}
+    if(kind==='wind'){m=new THREE.Group();for(let q=0;q<2;q++){const c=new THREE.Mesh(arcGeoA,fxMat(TRAIL_FS));c.material.uniforms.uCol.value.set(0x4fe8c8);c.material.uniforms.uCol2.value.set(0xf2fffb);c.material.uniforms.uP.value=1.25;c.scale.setScalar(0.36);c.rotation.y=q*Math.PI;c.position.z=q?0.75:-0.75;m.add(c);}g.add(m);g.add(glowSprite(0x7ff5d8,2.6,0.6));}
+    else if(kind==='ice'){m=new THREE.Mesh(octGeo,basic(0xe2f8ff));m.scale.set(0.17,0.17,0.5);g.add(m);g.add(glowSprite(0x8fdcff,2.4,0.85));const tl=new THREE.Mesh(spikeGeoFx,glowy(0x7fd0ff,0.55));tl.rotation.x=-Math.PI/2;tl.scale.set(0.16,1.9,0.16);tl.position.z=-0.1;g.add(tl);}
+    else if(kind==='frost'){m=new THREE.Mesh(octGeo,basic(0xf0fbff));m.scale.set(0.3,0.3,0.7);g.add(m);g.add(glowSprite(0x8fdcff,3.4,0.85));const tl=new THREE.Mesh(spikeGeoFx,glowy(0x7fd0ff,0.5));tl.rotation.x=-Math.PI/2;tl.scale.set(0.26,2.4,0.26);g.add(tl);}
+    else{m=new THREE.Mesh(SPH,basic(0xf3c6ff));m.scale.setScalar(0.26);g.add(m);g.add(glowSprite(0xc070ff,2.6,0.85));const tl=new THREE.Mesh(spikeGeoFx,glowy(0xb060ff,0.5));tl.rotation.x=-Math.PI/2;tl.scale.set(0.2,1.5,0.2);g.add(tl);}
     scene.add(g);s={g:g,m:m,kind:kind,p:new V3(),v:new V3(),on:false,life:0,target:null,sp:1};shots.push(s);}
   const K=SHOT[kind];s.sp=K.sp;
   s.on=true;s.g.visible=true;s.p.set(x,y,z);s.v.set(dx*s.sp,dy*s.sp,dz*s.sp);s.life=K.life;s.target=target;
@@ -1796,7 +1924,7 @@ function updateShots(dt){
   for(let i=0;i<shots.length;i++){const s=shots[i];if(!s.on)continue;s.life-=dt;const col=SHOT[s.kind].col;
     if(s.kind==='ice'&&s.target&&s.target.alive){const e=s.target;tv.set(e.p.x-s.p.x,eCy(e)-s.p.y,e.p.z-s.p.z).normalize().multiplyScalar(s.sp);s.v.lerp(tv,Math.min(1,dt*5));s.g.rotation.y=Math.atan2(s.v.x,s.v.z);}
     s.p.addScaledVector(s.v,dt);s.g.position.copy(s.p);
-    if(s.kind==='wind')s.g.rotation.y+=dt*20;
+    if(s.kind==='wind')s.m.rotation.y+=dt*26;
     if(Math.random()<dt*30)spark(s.p.x,s.p.y,s.p.z,(Math.random()-0.5),(Math.random()-0.5),(Math.random()-0.5),0.35,0.3,col,0,1);
     let hit=false;
     if(s.kind==='orb'||s.kind==='frost'){if(!H.dead&&Math.hypot(s.p.x-H.p.x,s.p.y-H.p.y-0.9,s.p.z-H.p.z)<(s.kind==='frost'?1.1:0.9)){heroHurt(1,s.p.x-s.v.x,s.p.z-s.v.z);hit=true;}}
@@ -1804,6 +1932,7 @@ function updateShots(dt){
       if(Math.hypot(s.p.x-e.p.x,s.p.y-eCy(e),s.p.z-e.p.z)<Math.max(e.r,e.D.h)+0.6){const l=Math.hypot(s.v.x,s.v.z)||1;damageEnemy(e,1.5,s.v.x/l,s.v.z/l,s.kind==='ice'?{src:'ice',freeze:1.3}:{src:'wind'});hit=true;break;}}
     if(!hit&&(s.kind==='wind'||s.kind==='ice')&&hitProps(s.p.x,s.p.z,0.5,s.p.y-0.8))hit=true;
     if(hit&&s.kind==='ice')spikeFx(s.p.x,Math.max(groundH(s.p.x,s.p.z),WATER),s.p.z,1.3,0.22,0,0,0.7,0,0.2,0.1);
+    if(hit){star(s.p.x,s.p.y,s.p.z,col,3.2,0.2);shockRing(s.p.x,s.p.y,s.p.z,1.4,col,0.25);}
     if(hit||s.life<=0||s.p.y<groundH(s.p.x,s.p.z)-0.1){s.on=false;s.g.visible=false;burst(s.p.x,s.p.y,s.p.z,6,3,col,0.3,0.3,0,0);}
   }
 }
@@ -1824,7 +1953,7 @@ function updateFloes(dt){for(let i=0;i<floes.length;i++){const f=floes[i];if(f.t
 /* ===== 大招：风眼与霜天 ===== */
 const TW={t:0,x:0,z:0,y:0,tick:0,m:null};
 (function(){const g=new THREE.Group();
-  [[2.2,4.2,14,0.9],[1.2,2.6,10,-1.4]].forEach(a=>{const c=new THREE.Mesh(new THREE.CylinderGeometry(a[1],a[0],a[2],20,1,true),colMat);c.position.y=a[2]/2;c.renderOrder=1;c.userData={sp:a[3]};g.add(c);});
+  [[2.2,4.2,14,0.9],[1.2,2.6,10,-1.4]].forEach(a=>{const c=new THREE.Mesh(new THREE.CylinderGeometry(a[1],a[0],a[2],28,1,true),fxMat(TWIST_FS));c.material.uniforms.uCol.value.set(a[3]>0?0x2fd8b4:0x9ffbe4);c.material.uniforms.uCol2.value.set(0xffffff);c.position.y=a[2]/2;c.renderOrder=1;c.userData={sp:a[3]};g.add(c);});
   g.visible=false;scene.add(g);TW.m=g;})();
 const BZ={t:0,x:0,z:0,y:0,tick:0,ring:null};
 (function(){const r=new THREE.Mesh(ringGeo,glowy(0xaee9ff,0.5));r.visible=false;r.renderOrder=2;scene.add(r);BZ.ring=r;})();
@@ -1836,7 +1965,7 @@ function updateFields(dt,t){
   if(TW.t>0){TW.t-=dt;TW.tick-=dt;const fade=Math.min(1,TW.t*2,(6-TW.t)*4);TW.m.visible=true;TW.m.position.set(TW.x,TW.y,TW.z);TW.m.scale.set(fade,fade,fade);
     TW.m.children.forEach(c=>{c.rotation.y+=dt*c.userData.sp*5;});
     for(let k=0;k<3;k++){const a=Math.random()*TAU,r=1+Math.random()*3.5;spark(TW.x+Math.cos(a)*r,TW.y+Math.random()*2,TW.z+Math.sin(a)*r,-Math.sin(a)*7,5+Math.random()*6,Math.cos(a)*7,0.9,0.4,k?0xb8ffe9:0xffffff,-2,0.6);}
-    const hit=TW.tick<=0;if(hit)TW.tick=0.5;
+    const hit=TW.tick<=0;if(hit){TW.tick=0.5;helix(TW.x,TW.y,TW.z,5,14,0x7ff5d8,1.0,0,9);fx('helix',TW.x,TW.y,TW.z,0xffffff,1.0,{s:3,h:11,spin:-11,ry:2});shockRing(TW.x,TW.y+0.2,TW.z,7,0x9ff5e0,0.5);}
     for(let i=0;i<enemies.length;i++){const e=enemies[i];if(!e.alive)continue;const dx=TW.x-e.p.x,dz=TW.z-e.p.z,d=Math.hypot(dx,dz)||0.01;
       if(d>9||Math.abs(e.p.y-TW.y)>12)continue;
       if(!e.heavy&&e.frozen<=0){const pull=Math.min(9,d*3)*dt;e.p.x+=dx/d*pull-dz/d*pull*0.5;e.p.z+=dz/d*pull+dx/d*pull*0.5;
@@ -1847,7 +1976,7 @@ function updateFields(dt,t){
   if(BZ.t>0){BZ.t-=dt;BZ.tick-=dt;const R=9;BZ.ring.visible=true;BZ.ring.position.set(BZ.x,BZ.y+0.15,BZ.z);BZ.ring.scale.set(R,1,R);BZ.ring.material.opacity=Math.min(0.6,BZ.t)*(0.6+0.3*Math.sin(t*5));
     for(let k=0;k<4;k++){const a=Math.random()*TAU,r=Math.sqrt(Math.random())*R;spark(BZ.x+Math.cos(a)*r,BZ.y+7+Math.random()*3,BZ.z+Math.sin(a)*r,1.5,-7-Math.random()*4,0,1.1,0.36,k%2?0xffffff:0xbfeeff,0,0);}
     if(Math.random()<dt*14){const a=Math.random()*TAU,r=Math.sqrt(Math.random())*(R-1.5),x=BZ.x+Math.cos(a)*r,z=BZ.z+Math.sin(a)*r;if(groundH(x,z)<WATER-0.15&&platFloor(x,z,WATER+0.6)<WATER)addFloe(x,z,true);}
-    if(BZ.tick<=0){BZ.tick=0.7;shockRing(BZ.x,BZ.y+0.2,BZ.z,R,0xdff6ff,0.6);
+    if(BZ.tick<=0){BZ.tick=0.7;shockRing(BZ.x,BZ.y+0.2,BZ.z,R,0xdff6ff,0.6);fireWall(BZ.x,BZ.y,BZ.z,R*0.96,R,2.6,0x2f8fff,0xdff6ff,0.9);
       for(let k=0;k<3;k++){const a=Math.random()*TAU,r=Math.sqrt(Math.random())*(R-1),x=BZ.x+Math.cos(a)*r,z=BZ.z+Math.sin(a)*r,gy=Math.max(groundH(x,z),WATER);pillar(x,gy,z,0.5,12,0xdff6ff,0.35);spikeFx(x,gy,z,2.6,0.4,0,0,1.1,0.12,0,0);later(0.12,function(){flash(x,gy+0.6,z,0xbfeeff,5,0.25);});}
       for(let i=0;i<enemies.length;i++){const e=enemies[i];if(!e.alive)continue;const dx=e.p.x-BZ.x,dz=e.p.z-BZ.z,d=Math.hypot(dx,dz);
         if(d<R+e.r&&Math.abs(e.p.y-BZ.y)<9)damageEnemy(e,1,0,0,{src:'bliz',freeze:1.6});}}
@@ -1857,13 +1986,14 @@ function tryUlt(){
   if(H.dead||H.dashT>0||H.spinT>0)return;
   if(H.en<100){sfx('deny');return;}
   const ci=H.ci;if(ci===0&&H.swim){sfx('deny');return;}
-  H.en=0;H.inv=Math.max(H.inv,1.1);H.ultT=0.9;shake=Math.max(shake,0.35);ultCut(ci);sfx('ult');hitStop(0.28);screenFlash(HEROES[ci].css);
+  H.en=0;H.inv=Math.max(H.inv,1.1);H.ultT=0.9;shake=Math.max(shake,0.35);ultCut(ci);sfx('ult');hitStop(0.28);screenFlash(HEROES[ci].css);speedLines(HEROES[ci].css);
   pillar(H.p.x,H.p.y,H.p.z,2.2,14,HEROES[ci].hex,0.7);flash(H.p.x,H.p.y+1.2,H.p.z,HEROES[ci].hex,12,0.5);
-  if(ci===0){H.spinT=0.9;H.spinN=0;H.glide=false;}
+  if(ci===0){H.spinT=0.9;H.spinN=0;H.glide=false;magicCircle(H.p.x,H.p.y,H.p.z,8,0,0xff6a2a,1.5,H.p);fireWall(H.p.x,H.p.y,H.p.z,0.5,2.5,5,0xff3a10,0xffd27a,0.9);}
   else if(ci===1){const e=nearestEnemy(12);TW.x=e?e.p.x:H.p.x+Math.sin(H.face)*5;TW.z=e?e.p.z:H.p.z+Math.cos(H.face)*5;TW.y=Math.max(groundH(TW.x,TW.z),WATER);TW.t=6;TW.tick=0;
-    shockRing(TW.x,TW.y+0.2,TW.z,8,0x9ff5e0,0.6);spikeRing(TW.x,TW.z,5,12,5,0.3,1,0x9ff5e0,0.8,0.03,-0.5);pillar(TW.x,TW.y,TW.z,4,18,0xb8ffe9,0.8);sfx('wind');hint('tw','「风眼」是一股会走的上升气流。青岚滑翔进去会被托上高空');}
+    magicCircle(TW.x,TW.y,TW.z,8.5,1,0x35e0c0,6.2);fireWall(TW.x,TW.y,TW.z,1,8,2.4,0x1fbfa0,0xd8fff4,0.8);shockRing(TW.x,TW.y+0.2,TW.z,8,0x9ff5e0,0.6);spikeRing(TW.x,TW.z,5,12,5,0.3,1,0x9ff5e0,0.8,0.03,-0.5);pillar(TW.x,TW.y,TW.z,4,18,0xb8ffe9,0.8);sfx('wind');hint('tw','「风眼」是一股会走的上升气流。青岚滑翔进去会被托上高空');}
   else{BZ.x=H.p.x;BZ.z=H.p.z;BZ.y=Math.max(groundH(H.p.x,H.p.z),WATER);BZ.t=7;BZ.tick=0;H.frost=Math.max(H.frost,12);H.castT=0.6;
     burst(H.p.x,H.p.y+1,H.p.z,50,10,0xdff6ff,0.5,1.0,3,2);sfx('ice');
+    magicCircle(BZ.x,BZ.y,BZ.z,9.6,2,0x6ab8ff,7.2);dome(BZ.x,BZ.y,BZ.z,9.2,0x5fb4ff,7);fireWall(BZ.x,BZ.y,BZ.z,1,9,3,0x2f8fff,0xdff6ff,0.9);
     spikeRing(BZ.x,BZ.z,9,22,4.2,0.5,0,0,7,0.02,0.25);spikeRing(BZ.x,BZ.z,4,9,2.2,0.34,0,0,1.6,0.03,0.5);
     if(H.swim||groundH(H.p.x,H.p.z)<WATER-0.15){addFloe(H.p.x,H.p.z);H.p.y=Math.max(H.p.y,WATER+0.12);H.swim=false;H.vy=0;H.grounded=true;}}
 }
@@ -1898,12 +2028,14 @@ function tryAttack(){
     H.atkDur=H.atkT=big?0.36:0.27;H.atkCd=big?0.44:0.3;H.hitT=0.08;
     const e=nearestEnemy(5);if(e)H.face=Math.atan2(e.p.x-H.p.x,e.p.z-H.p.z);
     if(H.grounded){H.v.x+=Math.sin(H.face)*5.5;H.v.z+=Math.cos(H.face)*5.5;}
-    slashArc(H.p.x+Math.sin(H.face)*0.4,H.p.y+1.0,H.p.z+Math.cos(H.face)*0.4,H.face,H.combo%2?-1:1,big?1.4:1,big?0xffd27a:0xffffff);sfx('slash');
+    slashArc(H.p.x+Math.sin(H.face)*0.4,H.p.y+1.0,H.p.z+Math.cos(H.face)*0.4,H.face,H.combo%2?-1:1,big?1.5:1.05,big?0xff9a3a:0x8fd0ff);
+    if(big)slashArc(H.p.x+Math.sin(H.face)*0.4,H.p.y+1.25,H.p.z+Math.cos(H.face)*0.4,H.face,-1,1.2,0xffd27a);sfx('slash');
   }else{
     const e=nearestEnemy(23);let dx=Math.sin(H.face),dy=0,dz=Math.cos(H.face);
     if(e){H.face=Math.atan2(e.p.x-H.p.x,e.p.z-H.p.z);tv.set(e.p.x-H.p.x,eCy(e)-(H.p.y+1.15),e.p.z-H.p.z).normalize();dx=tv.x;dy=tv.y;dz=tv.z;}
     H.atkDur=H.atkT=0.26;H.atkCd=ci===1?0.38:0.55;H.hitT=-1;
-    shoot(ci===1?'wind':'ice',H.p.x+Math.sin(H.face)*0.5,H.p.y+1.15,H.p.z+Math.cos(H.face)*0.5,dx,dy,dz,e);sfx(ci===1?'whoosh':'icebolt');
+    shoot(ci===1?'wind':'ice',H.p.x+Math.sin(H.face)*0.5,H.p.y+1.15,H.p.z+Math.cos(H.face)*0.5,dx,dy,dz,e);
+    star(H.p.x+Math.sin(H.face)*0.7,H.p.y+1.2,H.p.z+Math.cos(H.face)*0.7,ci===1?0x9ff5e0:0xbfeeff,2.6,0.18);if(ci===2)magicCircle(H.p.x,H.p.y,H.p.z,1.3,2,0x6ab8ff,0.45,H.p);else shockRing(H.p.x+Math.sin(H.face)*0.8,H.p.y+1.15,H.p.z+Math.cos(H.face)*0.8,1.1,0x9ff5e0,0.2);sfx(ci===1?'whoosh':'icebolt');
   }
 }
 function meleeHit(){
@@ -1911,7 +2043,7 @@ function meleeHit(){
   for(let i=0;i<enemies.length;i++){const e=enemies[i];if(!e.alive)continue;const dx=e.p.x-H.p.x,dz=e.p.z-H.p.z,d=Math.hypot(dx,dz)||0.01;
     if(d<reach+e.r&&Math.abs(e.p.y-H.p.y)<3.2&&(d<1.3+e.r||Math.abs(angDiff(Math.atan2(dx,dz),H.face))<1.3)){damageEnemy(e,dmg,dx/d,dz/d,{src:'melee',heavy:big});hit=true;}}
   hitProps(H.p.x+Math.sin(H.face)*1.6,H.p.z+Math.cos(H.face)*1.6,2,H.p.y);
-  if(big){const fx=H.p.x+Math.sin(H.face)*2.2,fz=H.p.z+Math.cos(H.face)*2.2;shockRing(fx,H.p.y+0.15,fz,3,0xffd27a,0.3);spikeRing(fx,fz,1.3,5,1.4,0.16,1,0xffb060,0.35,0,0.6);}
+  if(big){const fx=H.p.x+Math.sin(H.face)*2.2,fz=H.p.z+Math.cos(H.face)*2.2;shockRing(fx,H.p.y+0.15,fz,3,0xffd27a,0.3);fireWall(fx,H.p.y,fz,0.3,2.8,1.8,0xff4a1a,0xffd27a,0.45);spikeRing(fx,fz,1.3,5,1.4,0.16,1,0xffb060,0.35,0,0.6);}
   if(hit)shake=Math.max(shake,big?0.3:0.16);
 }
 function breakCrack(c){
@@ -1928,12 +2060,13 @@ function trySkill(wx,wz,mag){
   if(ci===0){
     if(H.swim)return;let dx=Math.sin(H.face),dz=Math.cos(H.face);
     if(mag>0.2){const l=Math.hypot(wx,wz);dx=wx/l;dz=wz/l;}else{const e=nearestEnemy(9);if(e){const l=Math.hypot(e.p.x-H.p.x,e.p.z-H.p.z)||1;dx=(e.p.x-H.p.x)/l;dz=(e.p.z-H.p.z)/l;}}
-    H.dashX=dx;H.dashZ=dz;H.dashT=0.22;H.dashId++;H.dx0=H.p.x;H.dz0=H.p.z;flash(H.p.x,H.p.y+1,H.p.z,0xffb08a,5,0.2);H.inv=Math.max(H.inv,0.42);H.face=Math.atan2(dx,dz);H.atkT=0;sfx('dash');
+    H.dashX=dx;H.dashZ=dz;H.dashT=0.22;H.dashId++;H.dx0=H.p.x;H.dz0=H.p.z;flash(H.p.x,H.p.y+1,H.p.z,0xffb08a,5,0.2);speedLines('#ffd0a0');magicCircle(H.p.x,H.p.y,H.p.z,2.4,0,0xff6a2a,0.5);fireWall(H.p.x,H.p.y,H.p.z,0.4,2.6,1.6,0xff4a1a,0xffd27a,0.4);H.inv=Math.max(H.inv,0.42);H.face=Math.atan2(dx,dz);H.atkT=0;sfx('dash');
   }else if(ci===1){
     H.vy=26;H.grounded=false;H.swim=false;H.jumps=1;H.air=1;H.p.y+=0.15;
     shockRing(H.p.x,H.p.y+0.2,H.p.z,6.5,0x9ff5e0,0.5);
     for(let i=0;i<26;i++){const a=i/26*TAU;spark(H.p.x+Math.cos(a)*1.2,H.p.y+0.2,H.p.z+Math.sin(a)*1.2,Math.cos(a)*2,9+Math.random()*6,Math.sin(a)*2,0.7,0.45,0xb8ffe9,6,0.5);}
-    pillar(H.p.x,H.p.y,H.p.z,2.4,13,0xb8ffe9,0.6);spikeRing(H.p.x,H.p.z,3,10,3.2,0.22,1,0x9ff5e0,0.55,0.02,-0.5);
+    magicCircle(H.p.x,H.p.y,H.p.z,6.8,1,0x35e0c0,1.0);helix(H.p.x,H.p.y,H.p.z,2.4,12,0x7ff5d8,0.9,0,9);fx('helix',H.p.x,H.p.y,H.p.z,0xffffff,0.9,{s:1.6,h:14,spin:-12,ry:3.1,delay:0.06});fireWall(H.p.x,H.p.y,H.p.z,0.6,6.5,2.2,0x1fbfa0,0xd8fff4,0.6);
+    pillar(H.p.x,H.p.y,H.p.z,2.4,13,0x4fe8c8,0.7);spikeRing(H.p.x,H.p.z,3,10,3.2,0.22,1,0x9ff5e0,0.55,0.02,-0.5);
     {const gx=H.p.x,gy=H.p.y,gz=H.p.z;[0.1,0.2,0.3].forEach(function(d,k){later(d,function(){shockRing(gx,gy+2.5+k*2.5,gz,4.5-k,0xd8fff4,0.4);});});}
     hitProps(H.p.x,H.p.z,6,H.p.y);
     let spread=null;
@@ -1953,7 +2086,8 @@ function trySkill(wx,wz,mag){
     H.castT=0.5;H.frost=12;shockRing(H.p.x,H.p.y+0.3,H.p.z,8.5,0xaee9ff,0.65);shockRing(H.p.x,H.p.y+0.3,H.p.z,5,0xffffff,0.45);
     burst(H.p.x,H.p.y+1,H.p.z,40,8,0xbfeeff,0.5,0.9,2,2);
     spikeRing(H.p.x,H.p.z,3.2,8,1.8,0.3,0,0,1.5,0.012,0.45);spikeRing(H.p.x,H.p.z,6,13,2.6,0.36,0,0,1.9,0.012,0.4);spikeRing(H.p.x,H.p.z,8.3,18,1.7,0.3,0,0,1.6,0.01,0.4);
-    flash(H.p.x,H.p.y+1,H.p.z,0xbfeeff,14,0.4);pillar(H.p.x,H.p.y,H.p.z,1.6,10,0xdff6ff,0.5);hitStop(0.05);hitProps(H.p.x,H.p.z,8,H.p.y);
+    magicCircle(H.p.x,H.p.y,H.p.z,8.8,2,0x6ab8ff,1.7);dome(H.p.x,H.p.y,H.p.z,8.5,0x5fb4ff,0.8);fireWall(H.p.x,H.p.y,H.p.z,0.8,8.5,2.6,0x2f8fff,0xdff6ff,0.75);star(H.p.x,H.p.y+1.4,H.p.z,0xdff6ff,12,0.4);
+    flash(H.p.x,H.p.y+1,H.p.z,0xbfeeff,14,0.4);pillar(H.p.x,H.p.y,H.p.z,1.6,10,0x6ab8ff,0.6);hitStop(0.05);hitProps(H.p.x,H.p.z,8,H.p.y);
     for(let i=0;i<enemies.length;i++){const e=enemies[i];if(!e.alive)continue;const dx=e.p.x-H.p.x,dz=e.p.z-H.p.z,d=Math.hypot(dx,dz)||0.01;if(d<8.5+e.r&&Math.abs(e.p.y-H.p.y)<7)damageEnemy(e,2,dx/d*0.2,dz/d*0.2,{src:'nova',freeze:4.2});}
     if(H.swim||groundH(H.p.x,H.p.z)<WATER-0.15){addFloe(H.p.x,H.p.z);H.p.y=Math.max(H.p.y,WATER+0.12);H.swim=false;H.vy=0;H.grounded=true;}
     sfx('ice');
@@ -1979,10 +2113,11 @@ function updateHero(dt,t){
   if(H.spinT>0){H.spinT-=dt;H.face+=dt*24;H.inv=Math.max(H.inv,0.2);
     for(let k=0;k<3;k++){const a=H.face+k*2.1;spark(H.p.x+Math.sin(a)*3.2,H.p.y+0.9+Math.random()*0.6,H.p.z+Math.cos(a)*3.2,Math.sin(a)*4,2+Math.random()*3,Math.cos(a)*4,0.5,0.6,k?0xff8a3a:0xffe2a0,-2,1);}
     if(0.9-H.spinT>=H.spinN*0.28&&H.spinN<3){H.spinN++;const last=H.spinN===3,R=last?7:5.6;
-      shockRing(H.p.x,H.p.y+0.9,H.p.z,R,last?0xffe2a0:0xff8a3a,0.4);slashArc(H.p.x,H.p.y+1,H.p.z,H.face,1,R/2.6,0xff8a3a);slashArc(H.p.x,H.p.y+1,H.p.z,H.face+Math.PI,1,R/2.6,0xff8a3a);
+      shockRing(H.p.x,H.p.y+0.3,H.p.z,R,last?0xffe2a0:0xff8a3a,0.4);slashFull(H.p.x,H.p.y+1,H.p.z,R,0xff6a2a,0.4,0.18*(H.spinN%2?1:-1));slashFull(H.p.x,H.p.y+1.3,H.p.z,R*0.7,0xffd27a,0.45,-0.3);
+      fireWall(H.p.x,H.p.y,H.p.z,R*0.25,R,last?5:2.6,0xff3a10,0xffd27a,last?0.8:0.5);
       shake=Math.max(shake,last?0.55:0.3);sfx(last?'break':'slash');hitProps(H.p.x,H.p.z,R,H.p.y);
       spikeRing(H.p.x,H.p.z,R*0.8,last?16:9,last?4.2:2.4,0.34,1,last?0xffc060:0xff7a2a,last?0.7:0.4,0.012,0.35);flash(H.p.x,H.p.y+1,H.p.z,0xffa050,last?16:9,0.3);
-      if(last){pillar(H.p.x,H.p.y,H.p.z,3,15,0xffb060,0.7);screenFlash('#ffb060');for(let q=0;q<6;q++){const a=q*TAU/6;streak(H.p.x,H.p.z,H.p.x+Math.cos(a)*R,H.p.z+Math.sin(a)*R,H.p.y+0.3,1.1,0xff8a3a,0.5);}}
+      if(last){pillar(H.p.x,H.p.y,H.p.z,3,15,0xff5a1a,0.8);star(H.p.x,H.p.y+1.2,H.p.z,0xffe2a0,16,0.45);for(let q=0;q<8;q++){const a=q*TAU/8,px=H.p.x+Math.cos(a)*R*0.72,pz=H.p.z+Math.sin(a)*R*0.72;pillar(px,Math.max(groundH(px,pz),WATER),pz,1.1,7,0xff4a1a,0.7,q*0.03);}screenFlash('#ffb060');for(let q=0;q<6;q++){const a=q*TAU/6;streak(H.p.x,H.p.z,H.p.x+Math.cos(a)*R,H.p.z+Math.sin(a)*R,H.p.y+0.3,1.1,0xff8a3a,0.5);}}
       for(let i=0;i<enemies.length;i++){const e=enemies[i];if(!e.alive)continue;const dx=e.p.x-H.p.x,dz=e.p.z-H.p.z,d=Math.hypot(dx,dz)||0.01;
         if(d<R+e.r&&Math.abs(e.p.y-H.p.y)<5)damageEnemy(e,last?5:3,dx/d,dz/d,{src:'ult0',heavy:true});}
       for(let i=0;i<cracks.length;i++){const c=cracks[i];if(c.alive&&Math.hypot(c.x-H.p.x,c.z-H.p.z)<c.s+R-1&&Math.abs(c.y-H.p.y)<5)breakCrack(c);}}
@@ -1996,6 +2131,7 @@ function updateHero(dt,t){
     for(let i=0;i<cracks.length;i++){const c=cracks[i];if(c.alive&&Math.hypot(c.x-H.p.x,c.z-H.p.z)<c.s+1.9&&Math.abs(c.y-H.p.y)<5)breakCrack(c);}
     hitProps(H.p.x,H.p.z,1.6,H.p.y);
     if(H.dashT<=0){H.v.x*=0.22;H.v.z*=0.22;slashArc(H.p.x,H.p.y+1,H.p.z,H.face,1,1.9,0xffb08a);slashArc(H.p.x,H.p.y+1.1,H.p.z,H.face,-1,1.6,0xfff0d0);
+      slashFull(H.p.x,H.p.y+1,H.p.z,3.4,0xff7a3a,0.35,0.35);slashFull(H.p.x,H.p.y+1,H.p.z,2.8,0xffe2a0,0.4,-0.5);fireWall(H.p.x,H.p.y,H.p.z,0.5,3.4,2.2,0xff4a1a,0xffd27a,0.5);star(H.p.x,H.p.y+1,H.p.z,0xffe2a0,9,0.3);
       streak(H.dx0,H.dz0,H.p.x,H.p.z,H.p.y+0.9,1.5,0xff8a5a,0.45);streak(H.dx0,H.dz0,H.p.x,H.p.z,H.p.y+1.0,0.5,0xfff0d0,0.6);flash(H.p.x,H.p.y+1,H.p.z,0xffd0a0,7,0.25);
       const n=6;for(let k=1;k<=n;k++){const px=lerp(H.dx0,H.p.x,k/n),pz=lerp(H.dz0,H.p.z,k/n);spikeFx(px,Math.max(groundH(px,pz),WATER),pz,1.5,0.2,1,0xff8a3a,0.4,k*0.02,0,0);}}
   }else{
@@ -2092,6 +2228,7 @@ function animHero(dt,t){
   m.root.position.copy(H.p);if(H.swim)m.root.position.y+=0.25;
   m.root.rotation.y=H.face;
   m.root.visible=!(H.inv>0&&H.dashT<=0&&H.spinT<=0&&H.ultT<=0&&!H.dead&&Math.floor(t*16)%2===0);
+  ribbonStep(dt,heroes[0].blade,H.ci===0&&!H.dead&&(H.atkT>0||H.dashT>0||H.spinT>0),H.spinT>0||H.dashT>0?0xff7a2a:(H.combo===2?0xffb04a:0x8fd0ff));
   const g=Math.max(groundH(H.p.x,H.p.z),platFloor(H.p.x,H.p.z,H.p.y+0.5));
   heroShadow.visible=!H.swim&&g>WATER-0.3;heroShadow.position.set(H.p.x,g+0.08,H.p.z);heroShadow.scale.setScalar(Math.max(0.2,0.55-(H.p.y-g)*0.03));
 }
@@ -2124,7 +2261,7 @@ function activateTower(tw){
   lightTower(tw);S.towersLit++;H.maxHp+=2;H.hp=H.maxHp;H.st=H.maxSt;S.respawn.set(tw.x+2.6,tw.y+0.5,tw.z+1.2);
   shockRing(tw.x,tw.y+0.7,tw.z,14,CYAN,0.9);shockRing(tw.x,tw.y+0.7,tw.z,7,0xffffff,0.6);
   for(let i=0;i<70;i++){const a=Math.random()*TAU,r=Math.random()*1.5;spark(tw.x+Math.cos(a)*r,tw.y+1+Math.random()*7,tw.z+Math.sin(a)*r,Math.cos(a)*2.5,6+Math.random()*10,Math.sin(a)*2.5,1.4,0.55,i%3?CYAN:0xffffff,3,0.4);}
-  pillar(tw.x,tw.y,tw.z,4,40,CYAN,1.2);spikeRing(tw.x,tw.z,5,12,3.4,0.3,1,CYAN,1,0.03,0.15);screenFlash('#bff8ff');
+  pillar(tw.x,tw.y,tw.z,4,40,CYAN,1.4);magicCircle(tw.x,tw.y+0.5,tw.z,7,1,CYAN,3);fireWall(tw.x,tw.y,tw.z,1,14,3,0x1fa0c0,0xdffcff,1.1);helix(tw.x,tw.y,tw.z,3,14,CYAN,1.4,0,6);spikeRing(tw.x,tw.z,5,12,3.4,0.3,1,CYAN,1,0.03,0.15);screenFlash('#bff8ff');
   shake=Math.max(shake,0.4);sfx('tower');hudHearts();hudTrack(true);addEnergy(100);
   banner(tw.name,'已点亮 · 生命上限 +1 · 这里成为新的落脚点');
   saveGame();
@@ -2599,7 +2736,7 @@ function resize(){const w=canvas.clientWidth||innerWidth,h=canvas.clientHeight||
 addEventListener('resize',resize);
 function updateCamera(dt){
   const k=1-Math.exp(-dt*9);camT.x+=(H.p.x-camT.x)*k;camT.y+=(H.p.y+1.5-camT.y)*k;camT.z+=(H.p.z-camT.z)*k;
-  const wantFov=58+(H.running?5:0)+(H.dashT>0?12:0)+(H.glide?5:0);
+  const wantFov=58+(H.running?5:0)+(H.dashT>0?12:0)+(H.glide?5:0)+(H.ultT>0.35?-10:(H.ultT>0?8:0))+(H.spinT>0?7:0);
   if(Math.abs(wantFov-cam.fov)>0.05){cam.fov+=(wantFov-cam.fov)*Math.min(1,dt*6);cam.updateProjectionMatrix();}
   const cp=Math.cos(camPitch),ox=Math.sin(camYaw)*cp,oy=Math.sin(camPitch),oz=Math.cos(camYaw)*cp,want=started?camDist:7.4;
   let dd=want;

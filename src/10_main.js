@@ -240,7 +240,7 @@ function resize(){const w=canvas.clientWidth||innerWidth,h=canvas.clientHeight||
 addEventListener('resize',resize);
 function updateCamera(dt){
   const k=1-Math.exp(-dt*9);camT.x+=(H.p.x-camT.x)*k;camT.y+=(H.p.y+1.5-camT.y)*k;camT.z+=(H.p.z-camT.z)*k;
-  const wantFov=58+(H.running?5:0)+(H.dashT>0?12:0)+(H.glide?5:0);
+  const wantFov=58+(H.running?5:0)+(H.dashT>0?12:0)+(H.glide?5:0)+(H.ultT>0.35?-10:(H.ultT>0?8:0))+(H.spinT>0?7:0);
   if(Math.abs(wantFov-cam.fov)>0.05){cam.fov+=(wantFov-cam.fov)*Math.min(1,dt*6);cam.updateProjectionMatrix();}
   const cp=Math.cos(camPitch),ox=Math.sin(camYaw)*cp,oy=Math.sin(camPitch),oz=Math.cos(camYaw)*cp,want=started?camDist:7.4;
   let dd=want;
