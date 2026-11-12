@@ -1,0 +1,4 @@
+test.html
+__pycache__/
+*.png
+.DS_Store
