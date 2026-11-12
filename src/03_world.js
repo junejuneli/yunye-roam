@@ -22,6 +22,7 @@ const ISLES=[{x:345,z:-5,y:36,r:9},{x:-20,z:-215,y:78,r:10},{x:5,z:225,y:26,r:9}
 const CAMPS=[[310,115],[70,-50],[120,290],[-320,-40],[150,-225]].map(a=>{const p=nearLand(a[0],a[1]);return {x:p[0],z:p[1],y:site(p[0],p[1],8)};});
 const ROCKSPOTS=[[205,-70],[-30,-300],[-250,170],[30,30],[330,40]].map(a=>{const p=nearLand(a[0],a[1]);return {x:p[0],z:p[1],y:site(p[0],p[1],4)};});
 const OPENCHESTS=[[240,-120],[-60,-60],[235,150],[-220,-20]].map(a=>{const p=nearLand(a[0],a[1]);return {x:p[0],z:p[1],y:site(p[0],p[1],3)};});
+const TRIALS=[[185,80],[-75,165],[55,-150]].map((a,i)=>{const p=nearLand(a[0],a[1]);return {id:i,x:p[0],z:p[1],y:site(p[0],p[1],9)};});
 
 /* ===== 地形网格 ===== */
 const PAL={sand:C(0xf2e5b3),g1:C(0x97d862),g2:C(0x70be4f),hi:C(0xb6d86c),forest:C(0x4b9947),rock:C(0x9d9686),cliff:C(0x7f786c),snow:C(0xf7fbfe),meadow:C(0xcfe070),shade:C(0x4fa851),bed:C(0x86d2bd),deep:C(0x3e8fb2)};

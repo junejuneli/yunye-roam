@@ -33,7 +33,7 @@ kbd{font-family:var(--body);font-size:10px;font-style:normal}
 body.playing #hud{opacity:1}
 /* 左上：当前旅人 */
 #tl{position:absolute;left:var(--sl);top:var(--st);display:flex;flex-direction:column;gap:8px;align-items:flex-start;max-width:min(58vw,340px)}
-#card{display:flex;align-items:center;gap:10px}
+#card{display:flex;align-items:center;gap:10px;pointer-events:auto;cursor:pointer}
 .pt{position:relative;flex:none;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 50% 30%,color-mix(in srgb,var(--hc) 55%,#fff),var(--hc) 60%,color-mix(in srgb,var(--hc) 60%,#000));
   display:grid;place-items:center;box-shadow:0 2px 10px rgba(0,20,30,.35)}
 .pt img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
@@ -144,13 +144,29 @@ body.frost #bSkill{box-shadow:0 0 18px 4px #9fe8ff}
 #bRun .g{font-size:18px}
 #bRun[aria-pressed="true"]{background:rgba(147,229,109,.85);color:var(--ink);text-shadow:none}
 body.touch #bRun{display:grid}
-#chars{position:fixed;right:var(--sr);bottom:calc(var(--sb) + 182px);display:flex;gap:10px}
-.ch{position:relative;width:48px;height:48px;transition:transform .15s;overflow:visible;--cd:0}
-.ch .pt{width:100%;height:100%;box-shadow:none}
-.ch .pt .g{font-size:19px}
-.ch::after{content:"";position:absolute;inset:0;border-radius:50%;background:conic-gradient(rgba(6,14,18,.7) calc(var(--cd)*1turn),transparent 0);pointer-events:none}
-.ch.on{border:2.5px solid #fff;transform:scale(1.16);box-shadow:0 0 14px var(--hc)}
-.ch:not(.on) .pt{filter:saturate(.75) brightness(.9)}
+#bSwap{width:auto;height:44px;border-radius:22px;padding:0 16px 0 6px;right:var(--sr);bottom:calc(var(--sb) + 182px);display:flex;gap:8px;align-items:center;border-color:var(--hc)}
+#bSwap .pt{width:32px;height:32px;box-shadow:none}
+#bSwap .pt .g{font-size:15px}
+#bSwap .l{font-family:var(--display);font-size:16px;letter-spacing:.2em}
+#flash{position:fixed;inset:0;pointer-events:none;opacity:0;mix-blend-mode:screen}
+#flash.on{animation:fl .45s ease-out}
+@keyframes fl{0%{opacity:.55}100%{opacity:0}}
+/* 旅人页：换人在这里 */
+#party .card{width:min(940px,100%)}
+#pRow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;min-height:0;overflow:auto}
+.pc{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:0 12px 12px;border-radius:14px;border:1.5px solid var(--hair);cursor:pointer;min-width:0;overflow:hidden;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--hc) 46%,transparent),rgba(255,255,255,.04) 58%);transition:transform .15s,border-color .15s}
+.pc:hover{transform:translateY(-3px);border-color:var(--hc)}
+.pc.on{border:2px solid #fff;box-shadow:0 0 18px color-mix(in srgb,var(--hc) 70%,transparent)}
+.pf{display:grid;place-items:end center;width:100%;height:min(34vh,250px);flex:none;overflow:hidden}
+.pf img{height:100%;max-width:100%;object-fit:contain;display:block;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35))}
+.pf .g{font-family:var(--display);font-size:80px;align-self:center}
+.pn{font-size:12px;letter-spacing:.1em;opacity:.95}
+.pn b{font-family:var(--display);font-size:22px;letter-spacing:.2em;margin-right:8px}
+.pd{font-size:12px;line-height:1.65;text-align:left;opacity:.95}
+.pd b{color:var(--sun);font-weight:600;margin-right:8px}
+.ps{margin-top:auto;font-size:12px;letter-spacing:.1em;padding:4px 14px;border-radius:12px;background:rgba(8,18,22,.5);border:1px solid var(--hair)}
+.pc.on .ps{background:var(--hc);color:#fff;border-color:transparent}
 .tb{width:38px;height:38px;top:var(--st);font-size:16px}
 #menuBtn{right:calc(var(--sr) + 124px)}
 #mapBtn{right:calc(var(--sr) + 124px);top:calc(var(--st) + 46px);font-family:var(--display)}
@@ -230,8 +246,9 @@ body.booting #title{background:none}
 .stats div{background:rgba(255,255,255,.06);border-radius:10px;padding:9px 4px;font-size:11.5px;letter-spacing:.08em}
 .stats b{display:block;font-size:20px;color:var(--sun);font-variant-numeric:tabular-nums;font-weight:600}
 #err{position:fixed;inset:0;display:grid;place-items:center;padding:24px;text-align:center;background:var(--ink);color:var(--paper);line-height:1.8;z-index:9}
-@media (max-height:460px){#mapWrap{width:84px;height:84px}#meta{font-size:11px;line-height:1.25}#menuBtn,#mapBtn{right:calc(var(--sr) + 96px)}#chars{bottom:calc(var(--sb) + 172px)}#banner{top:13%}#title{gap:6px}#title p{display:none}#quest small{display:none}#tl{gap:5px}
+@media (max-height:460px){#mapWrap{width:84px;height:84px}#meta{font-size:11px;line-height:1.25}#menuBtn,#mapBtn{right:calc(var(--sr) + 96px)}#bSwap{bottom:calc(var(--sb) + 172px)}.pf{height:30vh}.pd{display:none}#banner{top:13%}#title{gap:6px}#title p{display:none}#quest small{display:none}#tl{gap:5px}
   .pane{max-height:46vh}.card{padding:12px 16px;gap:8px}.card h2{font-size:19px}#pt{width:46px;height:46px}#combo{top:30%}#cut{top:26%}}
+@media (max-width:640px){#pRow{grid-template-columns:1fr}.pc{flex-direction:row;flex-wrap:wrap;padding:8px}.pf{width:84px;height:110px}.pd{flex-basis:100%}}
 @media (max-width:560px){.stats{grid-template-columns:repeat(2,1fr)}#boss{top:calc(var(--st) + 128px);width:min(300px,70vw)}#combo{right:var(--sr);top:36%}}
 @media (prefers-reduced-motion:reduce){.toast{animation:none}#bUlt.full,#mark i,body.lowhp #vig{animation:none}}
 </style>
@@ -253,13 +270,13 @@ body.booting #title{background:none}
   <div id="floats"></div>
   <div id="mark" hidden><i></i><span></span></div>
   <div id="toasts" aria-live="polite"></div>
-  <div id="keys"><b>WASD</b> 移动　<b>空格</b> 跳／滑翔　<b>Shift</b> 跑　<b>J／左键</b> 攻击　<b>K／右键</b> 技能　<b>R</b> 大招　<b>1 2 3</b> 换人　<b>M</b> 地图</div>
+  <div id="keys"><b>WASD</b> 移动　<b>空格</b> 跳／滑翔　<b>Shift</b> 跑　<b>J／左键</b> 攻击　<b>K／右键</b> 技能　<b>R</b> 大招　<b>Tab</b> 换人　<b>M</b> 地图</div>
 </div>
 <div id="stam"></div>
 
 <div id="ctl">
   <div id="ring" hidden></div><div id="knob" hidden></div>
-  <div id="chars"></div>
+  <button id="bSwap" class="btn" type="button" aria-label="打开旅人页换人"><span class="pt"><span class="g">羽</span></span><span class="l">换人</span><kbd>Tab</kbd></button>
   <button id="bUlt" class="btn cdb" type="button"><span class="g">燎</span><kbd>R</kbd></button>
   <button id="bSkill" class="btn cdb" type="button"><span class="g">斩</span><span class="n"></span><kbd>K</kbd></button>
   <button id="bJump" class="btn" type="button" aria-label="跳跃，空中按住滑翔"><span class="g">跳</span><kbd>空格</kbd></button>
@@ -268,7 +285,7 @@ body.booting #title{background:none}
   <button id="menuBtn" class="btn tb" type="button" aria-label="菜单">☰</button>
   <button id="mapBtn" class="btn tb" type="button" aria-label="地图">图</button>
 </div>
-<div id="vig"></div>
+<div id="vig"></div><div id="flash"></div>
 <div id="cut"><div class="pt"><span class="g"></span><img alt="" hidden></div><div><b></b><span></span></div></div>
 <div id="fade"><div><h3>倒下了</h3><p>风会把你送回上一个落脚点</p></div></div>
 
@@ -301,7 +318,7 @@ body.booting #title{background:none}
         <dt>攻击</dt><dd>J 或鼠标左键，可以按住连发</dd>
         <dt>技能</dt><dd>K／E／鼠标右键</dd>
         <dt>大招</dt><dd>R／F。打中敌人、开宝箱都会充能</dd>
-        <dt>换人</dt><dd>1 2 3 或 Q。放完技能立刻换人会触发「接力」</dd>
+        <dt>换人</dt><dd>Tab／C 打开旅人页挑选（期间游戏暂停）；熟练后也可以直接按 1 2 3 或 Q。放完技能立刻换人会触发「接力」</dd>
         <dt>地图／菜单</dt><dd>M 打开地图，Esc／P 打开菜单</dd>
         <dt>联动</dt><dd>冻结的敌人被重击会「碎冰」；「乘风」卷到冻结的敌人会「扩散」寒气；被吹上天或吹落的敌人受到「追击」加成</dd>
       </dl>
@@ -323,11 +340,19 @@ body.booting #title{background:none}
   </div>
 </div>
 
+<div id="party" class="sheet" hidden>
+  <div class="card" role="dialog" aria-label="旅人">
+    <h2>旅人</h2>
+    <div id="pRow"></div>
+    <button id="ptClose" class="pri" type="button">返回</button>
+  </div>
+</div>
+
 <div id="bigmap" class="sheet" hidden>
   <div class="card" role="dialog" aria-label="地图">
     <h2>云野</h2>
     <canvas id="bm" width="640" height="640"></canvas>
-    <div class="legend"><span><i style="--ic:#fff;--r:50%"></i>你</span><span><i style="--ic:#ffa64d;--rot:45deg"></i>未点亮的风塔</span><span><i style="--ic:#74f2ff;--rot:45deg"></i>已点亮</span><span><i style="--ic:#ffb84a"></i>宝箱</span><span><i style="--ic:#fff3a0;--r:50%"></i>星辉</span><span>点亮风塔会标出附近的宝物</span></div>
+    <div class="legend"><span><i style="--ic:#fff;--r:50%"></i>你</span><span><i style="--ic:#ffa64d;--rot:45deg"></i>未点亮的风塔</span><span><i style="--ic:#74f2ff;--rot:45deg"></i>已点亮</span><span><i style="--ic:#ffb84a"></i>宝箱</span><span><i style="--ic:#c59bff;--r:50%"></i>试炼碑</span><span><i style="--ic:#fff3a0;--r:50%"></i>星辉</span><span>点亮风塔会标出附近的宝物</span></div>
     <button id="bmClose" class="pri" type="button">收起</button>
   </div>
 </div>

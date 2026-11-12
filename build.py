@@ -6,7 +6,7 @@ python3 build.py test   生成 test.html（用 tools/mock_three.js 代替 Three.
 """
 import sys
 SRC = 'src/'
-PARTS = ['01_core', '02_engine', '03_world', '04_nature', '05_fx', '06_objects', '07_actors', '08_game', '09_hud', '10_main']
+PARTS = ['01_core', '02_engine', '03_world', '04_nature', '05_fx', '06_objects', '07_actors', '07b_props', '08_game', '09_hud', '10_main']
 CDN = '<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>'
 mode = sys.argv[1] if len(sys.argv) > 1 else ''
 test = mode == 'test'
@@ -21,7 +21,7 @@ if test or dev:
     js += ("window.__g={H,S,I,TOWERS,chests,shards,cracks,enemies,COLUMNS,ISLES,CAMPS,windify,groundH,DN,plats,heroes,"
            "switchHero,activateTower,finale,PEAK,ISLETS,SPAWN,renderer,scene,cam,snapshot,loadGame,toggleMenu,frame,QUALITY,"
            "groundColor,tGeo,skyU,waterU,updateSky,HG,hmTex,sunL,hemi,N1,CELL,HALF,SEG,"
-           "setCam,hazards,EDEF,addEnemy,damageEnemy,bossE,TW,BZ,I,PORT,EPORT,ROCKSPOTS,toggleMap,showEnding,tryUlt,trySkill,animHero,get paused(){return paused;},set paused(v){paused=v;}};\n")
+           "setCam,hazards,EDEF,addEnemy,damageEnemy,bossE,TW,BZ,I,PORT,EPORT,ROCKSPOTS,toggleMap,TRIALS,props,toggleParty,spikes,showEnding,tryUlt,trySkill,animHero,get paused(){return paused;},set paused(v){paused=v;}};\n")
 js += ("}\nfunction boot(d){try{start(d);}catch(e){console.error(e);fail('游戏启动时出了点问题：'+(e&&e.message||e)+'<br>请刷新页面，或换一个较新的浏览器再试。');}}\n"
        "const hot=window.claude&&window.claude.hot;\n"
        "document.body.classList.add('booting');\n"

@@ -120,9 +120,21 @@ let fails=0;const ok=(name,cond,info)=>{if(!cond)fails++;console.log((cond?'  ok
   await pg.keyboard.press('KeyM');await W(200);ok('map open',!(await ev('document.getElementById("bigmap").hidden')));
   await pg.keyboard.press('Escape');await W(200);ok('map closed',(await ev('document.getElementById("bigmap").hidden&&!__g.paused')));
   // 触屏按钮
-  for(const s of ['#bAtk','#bJump','#bSkill','#bUlt','.ch:nth-child(2)']){if(s[0]==='.')await W(1300); /* 冲刺和大招途中不能换人 */
-    await pg.dispatchEvent(s,'pointerdown',{pointerId:5,pointerType:'touch'});await pg.dispatchEvent(s,'pointerup',{pointerId:5,pointerType:'touch'});}
-  await W(400);ok('touch switch',(await st()).ci===1);
+  for(const s of ['#bAtk','#bJump','#bSkill','#bUlt']){await pg.dispatchEvent(s,'pointerdown',{pointerId:5,pointerType:'touch'});await pg.dispatchEvent(s,'pointerup',{pointerId:5,pointerType:'touch'});}
+  await W(1400);
+  // 旅人页换人
+  await pg.click('#bSwap');await W(200);ok('party page open',!(await ev('document.getElementById("party").hidden'))&&(await ev('__g.paused')));
+  await pg.click('#pRow .pc:nth-child(2)');await W(300);ok('party page switches hero',(await st()).ci===1&&(await ev('document.getElementById("party").hidden&&!__g.paused')));
+  await pg.keyboard.press('Tab');await W(150);await pg.keyboard.press('Digit3');await W(300);ok('party page hotkey',(await st()).ci===2);
+  await pg.keyboard.press('Digit2');await W(300);
+  // 灌木、弹跳菇、篝火、试炼
+  await ev(`(()=>{const g=__g,H=g.H,p=g.props.find(p=>p.kind==='bush');g.enemies.forEach(e=>{e.alive=false;});H.hp=H.maxHp;H.dead=false;H.p.set(p.x,p.y,p.z-1.6);H.face=0;H.v.set(0,0,0);window.P=p;})()`);
+  await pg.keyboard.press('Digit1');await W(300);await pg.keyboard.press('KeyJ');await W(500);ok('bush cut',!(await ev('P.alive')));
+  await ev(`(()=>{const g=__g,H=g.H,s=g.TRIALS[0];H.hp=H.maxHp;H.inv=0;H.p.set(s.x+2,s.y,s.z);H.v.set(0,0,0);})()`);await W(1500);
+  ok('trial spawns wave',(await ev('__g.enemies.filter(e=>e.temp&&e.alive).length'))>=4);
+  for(let w=0;w<2;w++){await ev('__g.enemies.forEach(e=>{if(e.temp&&e.alive)__g.damageEnemy(e,999,0,0,{src:"melee"});})');await W(1600);}
+  await ev('__g.enemies.forEach(e=>{if(e.temp&&e.alive)__g.damageEnemy(e,999,0,0,{src:"melee"});})');await W(1200);
+  ok('trial cleared',(await ev('__g.S.trials'))===1,await ev('__g.S.trials'));
   // 存档与读档
   await pg.keyboard.press('KeyP');await W(200);await pg.click('#mClose');
   const snap=JSON.parse(await ev('localStorage.getItem("yunye-save-v2")'));ok('saved',snap&&snap.tw.length===4&&snap.bd===true,{tw:snap&&snap.tw,ch:snap&&snap.ch});

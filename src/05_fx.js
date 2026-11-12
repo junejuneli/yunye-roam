@@ -72,3 +72,44 @@ function shockRing(x,y,z,r,hex,dur){const f=fxMesh(ringGeo,hex);f.t=f.d=dur||0.5
 function updateFx(dt){for(let i=0;i<fxs.length;i++){const f=fxs[i];if(f.t<=0)continue;f.t-=dt;
   if(f.t<=0){f.m.visible=false;continue;}const k=1-f.t/f.d,s=lerp(f.s0,f.s1,1-(1-k)*(1-k));
   f.m.scale.set(s,1,s);f.m.material.opacity=(1-k)*0.9;if(f.kind===0)f.m.rotation.y=lerp(f.r0,f.r1,k);}}
+
+/* ===== 技能特效：闪光、地刺、光柱、残影、延时 ===== */
+const flashes=[];
+function flash(x,y,z,hex,size,dur){let f=null;for(let i=0;i<flashes.length;i++)if(flashes[i].t<=0){f=flashes[i];break;}
+  if(!f){if(flashes.length>40)return;f={s:glowSprite(hex,1,1),t:0,d:1,size:1};f.s.visible=false;scene.add(f.s);flashes.push(f);}
+  f.s.material.color.set(hex);f.t=f.d=dur||0.25;f.size=size;f.s.position.set(x,y,z);f.s.scale.set(size,size,1);f.s.visible=true;}
+const spikeGeoFx=(function(){const g=new THREE.ConeGeometry(1,1,5);g.translate(0,0.5,0);return g;})();
+const iceSpikeMat=new THREE.MeshPhongMaterial({color:0xd6f4ff,shininess:110,specular:0xffffff,transparent:true,opacity:0.88,emissive:0x2a6a9a,emissiveIntensity:0.35});
+const spikes=[];
+/* kind: 0 冰棱（实体） 1 光焰（发光） */
+function spikeFx(x,y,z,h,r,kind,hex,dur,delay,tx,tz){let s=null;for(let i=0;i<spikes.length;i++)if(spikes[i].t<=0&&spikes[i].kind===kind){s=spikes[i];break;}
+  if(!s){if(spikes.length>150)return;s={m:new THREE.Mesh(spikeGeoFx,kind?glowy(hex,0.85):iceSpikeMat),kind:kind,t:0};s.m.visible=false;if(kind)s.m.renderOrder=2;scene.add(s.m);spikes.push(s);}
+  if(kind)s.m.material.color.set(hex);s.t=s.d=dur;s.delay=delay||0;s.h=h;s.r=r;s.m.position.set(x,y-0.1,z);s.m.rotation.set(tx||0,Math.random()*TAU,tz||0);s.m.scale.set(r,0.01,r);s.m.visible=false;}
+function spikeRing(x,z,R,n,h,r,kind,hex,dur,stagger,lean){
+  for(let i=0;i<n;i++){const a=i/n*TAU+Math.random()*0.3,px=x+Math.cos(a)*R,pz=z+Math.sin(a)*R,gy=Math.max(groundH(px,pz),WATER);
+    spikeFx(px,gy,pz,h*(0.7+Math.random()*0.6),r*(0.8+Math.random()*0.4),kind,hex,dur,i*(stagger||0),Math.sin(a)*(lean||0.3),-Math.cos(a)*(lean||0.3));}}
+const pillarGeo=(function(){const g=new THREE.CylinderGeometry(1,1,1,16,1,true);g.translate(0,0.5,0);return g;})();
+const pillars=[];
+function pillar(x,y,z,r,h,hex,dur){let p=null;for(let i=0;i<pillars.length;i++)if(pillars[i].t<=0){p=pillars[i];break;}
+  if(!p){if(pillars.length>16)return;p={m:new THREE.Mesh(pillarGeo,glowy(hex,0.6)),t:0};p.m.visible=false;p.m.renderOrder=2;scene.add(p.m);pillars.push(p);}
+  p.m.material.color.set(hex);p.t=p.d=dur||0.5;p.r=r;p.h=h;p.m.position.set(x,y,z);p.m.visible=true;}
+const streakGeo=(function(){const g=new THREE.PlaneGeometry(1,1);g.rotateX(-Math.PI/2);return g;})();
+const streaks=[];
+function streak(x0,z0,x1,z1,y,w,hex,dur){let s=null;for(let i=0;i<streaks.length;i++)if(streaks[i].t<=0){s=streaks[i];break;}
+  if(!s){if(streaks.length>12)return;s={m:new THREE.Mesh(streakGeo,glowy(hex,0.8)),t:0};s.m.visible=false;s.m.renderOrder=2;scene.add(s.m);streaks.push(s);}
+  const dx=x1-x0,dz=z1-z0,l=Math.hypot(dx,dz)||0.01;s.m.material.color.set(hex);s.t=s.d=dur||0.35;s.w=w;s.l=l;
+  s.m.position.set((x0+x1)/2,y,(z0+z1)/2);s.m.rotation.set(0,Math.atan2(dx,dz),0);s.m.scale.set(w,1,l);s.m.visible=true;}
+const laters=[];
+function later(sec,fn){laters.push({t:sec,fn:fn});}
+let freezeT=0;
+function hitStop(sec){freezeT=Math.max(freezeT,sec);}
+function screenFlash(css){const e=document.getElementById('flash');if(!e)return;e.style.background=css||'#fff';e.classList.remove('on');void e.offsetWidth;e.classList.add('on');}
+function updateFx2(dt){
+  for(let i=0;i<flashes.length;i++){const f=flashes[i];if(f.t<=0)continue;f.t-=dt;if(f.t<=0){f.s.visible=false;continue;}const k=f.t/f.d,s=f.size*(1.3-0.5*k);f.s.scale.set(s,s,1);f.s.material.opacity=k;}
+  for(let i=0;i<spikes.length;i++){const s=spikes[i];if(s.t<=0)continue;if(s.delay>0){s.delay-=dt;continue;}
+    s.t-=dt;if(s.t<=0){s.m.visible=false;continue;}s.m.visible=true;const e=s.d-s.t,up=Math.min(1,e/0.12),down=Math.min(1,s.t/0.3),k=(1-(1-up)*(1-up))*down;
+    s.m.scale.set(s.r*(0.6+0.4*down),Math.max(0.01,s.h*k*(1+0.15*Math.max(0,1-e/0.25))),s.r*(0.6+0.4*down));if(s.kind)s.m.material.opacity=0.85*down;}
+  for(let i=0;i<pillars.length;i++){const p=pillars[i];if(p.t<=0)continue;p.t-=dt;if(p.t<=0){p.m.visible=false;continue;}const k=p.t/p.d,r=p.r*(0.25+0.75*k);p.m.scale.set(r,p.h*(1.4-0.4*k),r);p.m.material.opacity=0.3*k;}
+  for(let i=0;i<streaks.length;i++){const s=streaks[i];if(s.t<=0)continue;s.t-=dt;if(s.t<=0){s.m.visible=false;continue;}const k=s.t/s.d;s.m.scale.set(s.w*k,1,s.l);s.m.material.opacity=0.85*k;}
+  for(let i=laters.length-1;i>=0;i--){const l=laters[i];l.t-=dt;if(l.t<=0){laters.splice(i,1);l.fn();}}
+}

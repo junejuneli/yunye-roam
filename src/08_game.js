@@ -7,7 +7,7 @@ const H={p:new V3(SPAWN.x,SPAWN.y,SPAWN.z),v:new V3(),vy:0,grounded:true,swim:fa
   safe:new V3(SPAWN.x,SPAWN.y,SPAWN.z),safeT:0,walk:0,frags:0,pop:0,stepT:0,twist:0,
   en:0,relay:0,skillAgo:9,spinT:0,spinN:0,ultT:0};
 const S={shards:0,chestsOpen:0,towersLit:0,done:false,hints:{},respawn:new V3(SPAWN.x,SPAWN.y,SPAWN.z),stBonus:0,fin:0,
-  kills:0,time:0,bossDead:false,hits:0,hitsT:0,seen:{}};
+  kills:0,time:0,bossDead:false,trials:0,hits:0,hitsT:0,seen:{}};
 const I={mx:0,mz:0,run:false,jumpHeld:false,jump:false,atk:false,skill:false,ult:false};
 let started=false,paused=false,shake=0;
 
@@ -51,6 +51,27 @@ function addEnemy(type,x,z){
   scatter('golem',4,(x,z,h)=>h>14&&h<46&&slopeAt(x,z)<0.35);
 })();
 const bossE=enemies.find(e=>e.type==='boss');
+function spawnTemp(type,x,z){let e=null;for(let i=0;i<enemies.length;i++){const q=enemies[i];if(q.temp&&!q.alive&&q.type===type){e=q;break;}}
+  if(!e){e=addEnemy(type,x,z);e.temp=true;}
+  e.alive=true;e.hp=e.maxHp;e.home.x=x;e.home.z=z;e.p.set(x,groundH(x,z)+(e.fly?(type==='bat'?4:2.2):0),z);e.v.set(0,0,0);e.vy=0;e.frozen=e.stun=e.down=e.doused=0;e.st=e.fly?'hover':'idle';e.grounded=true;e.cool=1.2+Math.random();e.respawn=1e9;
+  if(e.m.shell){e.armor=true;e.armorT=1e9;e.m.shell.visible=true;}e.m.g.visible=true;e.sh.visible=true;
+  pillar(x,groundH(x,z),z,1.3,7,0xb060ff,0.55);burst(x,e.p.y+0.6,z,14,5,0xc59bff,0.45,0.5,2);return e;}
+/* 试炼：走进石碑的圈，打完两波敌人，碑后的宝箱才会出现 */
+const WAVES=[[['slime','slime','aqua','bat'],['ember','ember','bat','bat','wisp']],[['wisp','wisp','slime','slime','slime'],['golem','ember','bat']],[['bat','bat','bat','ember','ember'],['golem','golem','wisp']]];
+function trialDone(T,quiet){T.state=2;T.ring.visible=false;T.rm.color.setHex(CYAN);T.gl.material.color.setHex(CYAN);if(!T.chest.open){T.chest.hidden=false;T.chest.g.visible=true;}
+  if(quiet)return;S.trials++;pillar(T.x,T.y,T.z,2.5,16,CYAN,0.9);shockRing(T.x,T.y+0.2,T.z,10,CYAN,0.8);spikeRing(T.x,T.z,8.5,14,3,0.35,1,CYAN,0.9,0.02,0.1);
+  banner('试炼完成','石碑后面出现了一只宝箱');sfx('tower');addEnergy(100);hudTrack(true);saveGame();}
+function updateTrials(dt,t){
+  for(let i=0;i<trials.length;i++){const T=trials[i];T.rune.rotation.z=t*(T.state===1?4:0.8);if(T.state===2)continue;
+    const d=Math.hypot(H.p.x-T.x,H.p.z-T.z);T.ring.material.opacity=T.state?0.5+0.25*Math.sin(t*6):0.22+0.1*Math.sin(t*2);T.ring.rotation.y=t*0.2;
+    if(T.state===0){if(started&&!H.dead&&d<3.4&&Math.abs(H.p.y-T.y)<2){T.state=1;T.wave=0;T.foes=[];T.t=0.8;banner('试炼','打倒两波来敌');sfx('charge');shockRing(T.x,T.y+0.2,T.z,8.5,0xb060ff,0.6);}
+      else if(d<14)hint('trial','这是一块试炼碑。走到碑前就会开始，打完两波敌人有奖励');continue;}
+    if(H.dead||d>42){T.foes.forEach(e=>{e.alive=false;e.m.g.visible=false;e.sh.visible=false;e.ice.visible=false;});T.state=0;toast('试炼中断了，回到石碑前可以重来');continue;}
+    T.t-=dt;if(T.t>0||T.foes.some(e=>e.alive))continue;
+    const W=WAVES[T.id];if(T.wave>=W.length){trialDone(T);continue;}
+    const list=W[T.wave];T.foes=list.map((ty,k)=>{const a=k*TAU/list.length+T.wave,r=6.2;return spawnTemp(ty,T.x+Math.cos(a)*r,T.z+Math.sin(a)*r);});
+    T.wave++;T.t=1;toast('第 '+T.wave+' 波 / 共 '+W.length+' 波');sfx('screech');}
+}
 const eCy=e=>e.fly?e.p.y:e.p.y+e.D.h;
 function nearestEnemy(range){let best=null,bd=range;
   for(let i=0;i<enemies.length;i++){const e=enemies[i];if(!e.alive)continue;const d=Math.hypot(e.p.x-H.p.x,e.p.z-H.p.z)-e.r;
@@ -72,7 +93,7 @@ function damageEnemy(e,d,kx,kz,o){
     else{d*=0.25;tag='格挡';sfx('clang');hint('armor','石甲太硬了。切到赤羽，用「冲刺斩」破甲');}
   }
   if(e.frozen>0&&(src==='dash'||src==='ult0'||o.heavy)){d*=2;e.frozen=0;tag='碎冰';crit=true;
-    burst(e.p.x,cy,e.p.z,26,8,0xd8f6ff,0.5,0.6,2,10);shockRing(e.p.x,e.p.y+0.2,e.p.z,e.r*3,0xaee9ff,0.4);sfx('shatter');}
+    burst(e.p.x,cy,e.p.z,26,8,0xd8f6ff,0.5,0.6,2,10);shockRing(e.p.x,e.p.y+0.2,e.p.z,e.r*3,0xaee9ff,0.4);spikeRing(e.p.x,e.p.z,e.r*1.1,6,1.6,0.22,0,0,0.6,0,0.7);sfx('shatter');}
   else if(e.frozen>0&&src==='melee')hint('shatter','冻住的敌人很脆。赤羽的第三段重击或「冲刺斩」能「碎冰」，伤害翻倍');
   if(e.type==='bat'&&(src==='wind'||src==='gust'||src==='tornado')){d*=2;if(!tag)tag='克制';crit=true;}
   if(e.type==='ember'&&(src==='ice'||src==='nova'||src==='bliz')){d*=2;e.doused=9;if(!tag)tag='浇灭';crit=true;}
@@ -80,7 +101,8 @@ function damageEnemy(e,d,kx,kz,o){
   d=Math.max(0.5,Math.round(d*2)/2);
   e.hp-=d;e.flash=0.14;
   floatText(e.p.x,cy+e.r*0.7,e.p.z,(tag?tag+' ':'')+fmtD(d),crit?'crit':(tag==='格挡'?'block':''));
-  burst(e.p.x,cy,e.p.z,8,5,0xffffff,0.35,0.3,1);
+  burst(e.p.x,cy,e.p.z,8,5,0xffffff,0.35,0.3,1);flash(e.p.x,cy,e.p.z,crit?0xffe2a0:0xffffff,crit?4.5:2.4,0.16);
+  if(crit||o.heavy)hitStop(crit?0.07:0.04);
   if(!e.heavy&&e.frozen<=0){e.v.x=kx*7;e.v.z=kz*7;if(!e.fly&&e.grounded){e.vy=5;e.grounded=false;}}
   if(o.freeze)freezeEnemy(e,o.freeze);
   e.cool=Math.max(e.cool,0.5);if(tag!=='格挡')sfx('hit');
@@ -89,7 +111,7 @@ function damageEnemy(e,d,kx,kz,o){
 }
 function killEnemy(e){
   const cy=eCy(e);e.alive=false;e.respawn=(e.type==='king'||e.type==='boss'||e.temp)?1e9:120;e.m.g.visible=false;e.sh.visible=false;e.ice.visible=false;
-  burst(e.p.x,cy,e.p.z,26,7,e.m.base.getHex(),0.5,0.7,2);shockRing(e.p.x,e.p.y+0.2,e.p.z,e.r*3,0xffffff,0.35);sfx('pop');
+  burst(e.p.x,cy,e.p.z,26,7,e.m.base.getHex(),0.5,0.7,2);shockRing(e.p.x,e.p.y+0.2,e.p.z,e.r*3,0xffffff,0.35);flash(e.p.x,cy,e.p.z,e.m.base.getHex(),e.r*7,0.3);sfx('pop');
   S.kills++;addEnergy(8);
   if(Math.random()<0.4||e.heavy)heal(e.type==='boss'?8:(e.heavy?3:1),e.p.x,cy,e.p.z);
   if(e.type==='ember'&&e.doused<=0&&e.frozen<=0){hazard(e.p.x,e.p.z,3.4,0.75,2,0xff7a3a,null,true);sfx('charge');}
@@ -161,7 +183,7 @@ function aiHop(e,dt,dx,dz,d,aggro,busy){
   const air=e.grounded?0:clamp(e.vy*0.03,-0.25,0.3),sy=1-e.sq*0.3+air+Math.sin(e.t*3+e.seed)*0.04;
   e.m.b.scale.set(1+(1-sy)*0.6,sy,1+(1-sy)*0.6);
   if(king&&!e.summoned&&e.hp<e.maxHp*0.5){e.summoned=true;toast('史莱姆王分裂出了小史莱姆');
-    for(let k=0;k<2;k++){const a=k*Math.PI+e.t,s=addEnemy('slime',e.p.x+Math.cos(a)*3,e.p.z+Math.sin(a)*3);s.temp=true;s.vy=7;s.grounded=false;burst(s.p.x,s.p.y+0.6,s.p.z,14,5,0xffa53d,0.45,0.5,2);}}
+    for(let k=0;k<2;k++){const a=k*Math.PI+e.t,s=spawnTemp('slime',e.p.x+Math.cos(a)*3,e.p.z+Math.sin(a)*3);s.vy=7;s.grounded=false;}}
   if(e.m.flame){const lit=e.doused<=0&&e.frozen<=0;e.m.flame.visible=lit;if(lit){e.m.flame.scale.y=1+Math.sin(e.t*17)*0.14;
     if(Math.random()<dt*9)spark(e.p.x+(Math.random()-0.5)*0.6,e.p.y+1.2,e.p.z+(Math.random()-0.5)*0.6,0,2+Math.random()*2,0,0.5,0.32,0xffa040,-1,1);}}
 }
@@ -286,6 +308,8 @@ function updateShots(dt){
     if(s.kind==='orb'||s.kind==='frost'){if(!H.dead&&Math.hypot(s.p.x-H.p.x,s.p.y-H.p.y-0.9,s.p.z-H.p.z)<(s.kind==='frost'?1.1:0.9)){heroHurt(1,s.p.x-s.v.x,s.p.z-s.v.z);hit=true;}}
     else for(let j=0;j<enemies.length;j++){const e=enemies[j];if(!e.alive)continue;
       if(Math.hypot(s.p.x-e.p.x,s.p.y-eCy(e),s.p.z-e.p.z)<Math.max(e.r,e.D.h)+0.6){const l=Math.hypot(s.v.x,s.v.z)||1;damageEnemy(e,1.5,s.v.x/l,s.v.z/l,s.kind==='ice'?{src:'ice',freeze:1.3}:{src:'wind'});hit=true;break;}}
+    if(!hit&&(s.kind==='wind'||s.kind==='ice')&&hitProps(s.p.x,s.p.z,0.5,s.p.y-0.8))hit=true;
+    if(hit&&s.kind==='ice')spikeFx(s.p.x,Math.max(groundH(s.p.x,s.p.z),WATER),s.p.z,1.3,0.22,0,0,0.7,0,0.2,0.1);
     if(hit||s.life<=0||s.p.y<groundH(s.p.x,s.p.z)-0.1){s.on=false;s.g.visible=false;burst(s.p.x,s.p.y,s.p.z,6,3,col,0.3,0.3,0,0);}
   }
 }
@@ -330,6 +354,7 @@ function updateFields(dt,t){
     for(let k=0;k<4;k++){const a=Math.random()*TAU,r=Math.sqrt(Math.random())*R;spark(BZ.x+Math.cos(a)*r,BZ.y+7+Math.random()*3,BZ.z+Math.sin(a)*r,1.5,-7-Math.random()*4,0,1.1,0.36,k%2?0xffffff:0xbfeeff,0,0);}
     if(Math.random()<dt*14){const a=Math.random()*TAU,r=Math.sqrt(Math.random())*(R-1.5),x=BZ.x+Math.cos(a)*r,z=BZ.z+Math.sin(a)*r;if(groundH(x,z)<WATER-0.15&&platFloor(x,z,WATER+0.6)<WATER)addFloe(x,z,true);}
     if(BZ.tick<=0){BZ.tick=0.7;shockRing(BZ.x,BZ.y+0.2,BZ.z,R,0xdff6ff,0.6);
+      for(let k=0;k<3;k++){const a=Math.random()*TAU,r=Math.sqrt(Math.random())*(R-1),x=BZ.x+Math.cos(a)*r,z=BZ.z+Math.sin(a)*r,gy=Math.max(groundH(x,z),WATER);pillar(x,gy,z,0.5,12,0xdff6ff,0.35);spikeFx(x,gy,z,2.6,0.4,0,0,1.1,0.12,0,0);later(0.12,function(){flash(x,gy+0.6,z,0xbfeeff,5,0.25);});}
       for(let i=0;i<enemies.length;i++){const e=enemies[i];if(!e.alive)continue;const dx=e.p.x-BZ.x,dz=e.p.z-BZ.z,d=Math.hypot(dx,dz);
         if(d<R+e.r&&Math.abs(e.p.y-BZ.y)<9)damageEnemy(e,1,0,0,{src:'bliz',freeze:1.6});}}
     if(BZ.t<=0)BZ.ring.visible=false;}
@@ -338,12 +363,14 @@ function tryUlt(){
   if(H.dead||H.dashT>0||H.spinT>0)return;
   if(H.en<100){sfx('deny');return;}
   const ci=H.ci;if(ci===0&&H.swim){sfx('deny');return;}
-  H.en=0;H.inv=Math.max(H.inv,1.1);H.ultT=0.9;shake=Math.max(shake,0.35);ultCut(ci);sfx('ult');
+  H.en=0;H.inv=Math.max(H.inv,1.1);H.ultT=0.9;shake=Math.max(shake,0.35);ultCut(ci);sfx('ult');hitStop(0.28);screenFlash(HEROES[ci].css);
+  pillar(H.p.x,H.p.y,H.p.z,2.2,14,HEROES[ci].hex,0.7);flash(H.p.x,H.p.y+1.2,H.p.z,HEROES[ci].hex,12,0.5);
   if(ci===0){H.spinT=0.9;H.spinN=0;H.glide=false;}
   else if(ci===1){const e=nearestEnemy(12);TW.x=e?e.p.x:H.p.x+Math.sin(H.face)*5;TW.z=e?e.p.z:H.p.z+Math.cos(H.face)*5;TW.y=Math.max(groundH(TW.x,TW.z),WATER);TW.t=6;TW.tick=0;
-    shockRing(TW.x,TW.y+0.2,TW.z,8,0x9ff5e0,0.6);sfx('wind');hint('tw','「风眼」是一股会走的上升气流。青岚滑翔进去会被托上高空');}
+    shockRing(TW.x,TW.y+0.2,TW.z,8,0x9ff5e0,0.6);spikeRing(TW.x,TW.z,5,12,5,0.3,1,0x9ff5e0,0.8,0.03,-0.5);pillar(TW.x,TW.y,TW.z,4,18,0xb8ffe9,0.8);sfx('wind');hint('tw','「风眼」是一股会走的上升气流。青岚滑翔进去会被托上高空');}
   else{BZ.x=H.p.x;BZ.z=H.p.z;BZ.y=Math.max(groundH(H.p.x,H.p.z),WATER);BZ.t=7;BZ.tick=0;H.frost=Math.max(H.frost,12);H.castT=0.6;
     burst(H.p.x,H.p.y+1,H.p.z,50,10,0xdff6ff,0.5,1.0,3,2);sfx('ice');
+    spikeRing(BZ.x,BZ.z,9,22,4.2,0.5,0,0,7,0.02,0.25);spikeRing(BZ.x,BZ.z,4,9,2.2,0.34,0,0,1.6,0.03,0.5);
     if(H.swim||groundH(H.p.x,H.p.z)<WATER-0.15){addFloe(H.p.x,H.p.z);H.p.y=Math.max(H.p.y,WATER+0.12);H.swim=false;H.vy=0;H.grounded=true;}}
 }
 
@@ -389,6 +416,8 @@ function meleeHit(){
   const big=H.combo===2,reach=big?3.5:2.9,dmg=big?3:2;let hit=false;
   for(let i=0;i<enemies.length;i++){const e=enemies[i];if(!e.alive)continue;const dx=e.p.x-H.p.x,dz=e.p.z-H.p.z,d=Math.hypot(dx,dz)||0.01;
     if(d<reach+e.r&&Math.abs(e.p.y-H.p.y)<3.2&&(d<1.3+e.r||Math.abs(angDiff(Math.atan2(dx,dz),H.face))<1.3)){damageEnemy(e,dmg,dx/d,dz/d,{src:'melee',heavy:big});hit=true;}}
+  hitProps(H.p.x+Math.sin(H.face)*1.6,H.p.z+Math.cos(H.face)*1.6,2,H.p.y);
+  if(big){const fx=H.p.x+Math.sin(H.face)*2.2,fz=H.p.z+Math.cos(H.face)*2.2;shockRing(fx,H.p.y+0.15,fz,3,0xffd27a,0.3);spikeRing(fx,fz,1.3,5,1.4,0.16,1,0xffb060,0.35,0,0.6);}
   if(hit)shake=Math.max(shake,big?0.3:0.16);
 }
 function breakCrack(c){
@@ -405,11 +434,14 @@ function trySkill(wx,wz,mag){
   if(ci===0){
     if(H.swim)return;let dx=Math.sin(H.face),dz=Math.cos(H.face);
     if(mag>0.2){const l=Math.hypot(wx,wz);dx=wx/l;dz=wz/l;}else{const e=nearestEnemy(9);if(e){const l=Math.hypot(e.p.x-H.p.x,e.p.z-H.p.z)||1;dx=(e.p.x-H.p.x)/l;dz=(e.p.z-H.p.z)/l;}}
-    H.dashX=dx;H.dashZ=dz;H.dashT=0.22;H.dashId++;H.inv=Math.max(H.inv,0.42);H.face=Math.atan2(dx,dz);H.atkT=0;sfx('dash');
+    H.dashX=dx;H.dashZ=dz;H.dashT=0.22;H.dashId++;H.dx0=H.p.x;H.dz0=H.p.z;flash(H.p.x,H.p.y+1,H.p.z,0xffb08a,5,0.2);H.inv=Math.max(H.inv,0.42);H.face=Math.atan2(dx,dz);H.atkT=0;sfx('dash');
   }else if(ci===1){
     H.vy=26;H.grounded=false;H.swim=false;H.jumps=1;H.air=1;H.p.y+=0.15;
     shockRing(H.p.x,H.p.y+0.2,H.p.z,6.5,0x9ff5e0,0.5);
     for(let i=0;i<26;i++){const a=i/26*TAU;spark(H.p.x+Math.cos(a)*1.2,H.p.y+0.2,H.p.z+Math.sin(a)*1.2,Math.cos(a)*2,9+Math.random()*6,Math.sin(a)*2,0.7,0.45,0xb8ffe9,6,0.5);}
+    pillar(H.p.x,H.p.y,H.p.z,2.4,13,0xb8ffe9,0.6);spikeRing(H.p.x,H.p.z,3,10,3.2,0.22,1,0x9ff5e0,0.55,0.02,-0.5);
+    {const gx=H.p.x,gy=H.p.y,gz=H.p.z;[0.1,0.2,0.3].forEach(function(d,k){later(d,function(){shockRing(gx,gy+2.5+k*2.5,gz,4.5-k,0xd8fff4,0.4);});});}
+    hitProps(H.p.x,H.p.z,6,H.p.y);
     let spread=null;
     for(let i=0;i<enemies.length;i++){const e=enemies[i];if(!e.alive)continue;const dx=e.p.x-H.p.x,dz=e.p.z-H.p.z,d=Math.hypot(dx,dz)||0.01;
       if(d<6.5+e.r&&Math.abs(e.p.y-H.p.y)<(e.fly?9:4)){
@@ -426,6 +458,8 @@ function trySkill(wx,wz,mag){
   }else{
     H.castT=0.5;H.frost=12;shockRing(H.p.x,H.p.y+0.3,H.p.z,8.5,0xaee9ff,0.65);shockRing(H.p.x,H.p.y+0.3,H.p.z,5,0xffffff,0.45);
     burst(H.p.x,H.p.y+1,H.p.z,40,8,0xbfeeff,0.5,0.9,2,2);
+    spikeRing(H.p.x,H.p.z,3.2,8,1.8,0.3,0,0,1.5,0.012,0.45);spikeRing(H.p.x,H.p.z,6,13,2.6,0.36,0,0,1.9,0.012,0.4);spikeRing(H.p.x,H.p.z,8.3,18,1.7,0.3,0,0,1.6,0.01,0.4);
+    flash(H.p.x,H.p.y+1,H.p.z,0xbfeeff,14,0.4);pillar(H.p.x,H.p.y,H.p.z,1.6,10,0xdff6ff,0.5);hitStop(0.05);hitProps(H.p.x,H.p.z,8,H.p.y);
     for(let i=0;i<enemies.length;i++){const e=enemies[i];if(!e.alive)continue;const dx=e.p.x-H.p.x,dz=e.p.z-H.p.z,d=Math.hypot(dx,dz)||0.01;if(d<8.5+e.r&&Math.abs(e.p.y-H.p.y)<7)damageEnemy(e,2,dx/d*0.2,dz/d*0.2,{src:'nova',freeze:4.2});}
     if(H.swim||groundH(H.p.x,H.p.z)<WATER-0.15){addFloe(H.p.x,H.p.z);H.p.y=Math.max(H.p.y,WATER+0.12);H.swim=false;H.vy=0;H.grounded=true;}
     sfx('ice');
@@ -451,8 +485,10 @@ function updateHero(dt,t){
   if(H.spinT>0){H.spinT-=dt;H.face+=dt*24;H.inv=Math.max(H.inv,0.2);
     for(let k=0;k<3;k++){const a=H.face+k*2.1;spark(H.p.x+Math.sin(a)*3.2,H.p.y+0.9+Math.random()*0.6,H.p.z+Math.cos(a)*3.2,Math.sin(a)*4,2+Math.random()*3,Math.cos(a)*4,0.5,0.6,k?0xff8a3a:0xffe2a0,-2,1);}
     if(0.9-H.spinT>=H.spinN*0.28&&H.spinN<3){H.spinN++;const last=H.spinN===3,R=last?7:5.6;
-      shockRing(H.p.x,H.p.y+0.9,H.p.z,R,last?0xffe2a0:0xff8a3a,0.4);slashArc(H.p.x,H.p.y+1,H.p.z,H.face,1,R/2.2,0xffb060);slashArc(H.p.x,H.p.y+1,H.p.z,H.face+Math.PI,1,R/2.2,0xffb060);
-      shake=Math.max(shake,last?0.55:0.3);sfx(last?'break':'slash');
+      shockRing(H.p.x,H.p.y+0.9,H.p.z,R,last?0xffe2a0:0xff8a3a,0.4);slashArc(H.p.x,H.p.y+1,H.p.z,H.face,1,R/2.6,0xff8a3a);slashArc(H.p.x,H.p.y+1,H.p.z,H.face+Math.PI,1,R/2.6,0xff8a3a);
+      shake=Math.max(shake,last?0.55:0.3);sfx(last?'break':'slash');hitProps(H.p.x,H.p.z,R,H.p.y);
+      spikeRing(H.p.x,H.p.z,R*0.8,last?16:9,last?4.2:2.4,0.34,1,last?0xffc060:0xff7a2a,last?0.7:0.4,0.012,0.35);flash(H.p.x,H.p.y+1,H.p.z,0xffa050,last?16:9,0.3);
+      if(last){pillar(H.p.x,H.p.y,H.p.z,3,15,0xffb060,0.7);screenFlash('#ffb060');for(let q=0;q<6;q++){const a=q*TAU/6;streak(H.p.x,H.p.z,H.p.x+Math.cos(a)*R,H.p.z+Math.sin(a)*R,H.p.y+0.3,1.1,0xff8a3a,0.5);}}
       for(let i=0;i<enemies.length;i++){const e=enemies[i];if(!e.alive)continue;const dx=e.p.x-H.p.x,dz=e.p.z-H.p.z,d=Math.hypot(dx,dz)||0.01;
         if(d<R+e.r&&Math.abs(e.p.y-H.p.y)<5)damageEnemy(e,last?5:3,dx/d,dz/d,{src:'ult0',heavy:true});}
       for(let i=0;i<cracks.length;i++){const c=cracks[i];if(c.alive&&Math.hypot(c.x-H.p.x,c.z-H.p.z)<c.s+R-1&&Math.abs(c.y-H.p.y)<5)breakCrack(c);}}
@@ -464,7 +500,10 @@ function updateHero(dt,t){
     for(let i=0;i<enemies.length;i++){const e=enemies[i];if(!e.alive||e.dash===H.dashId)continue;
       if(Math.hypot(e.p.x-H.p.x,e.p.z-H.p.z)<2.5+e.r&&Math.abs(e.p.y-H.p.y)<3.5+e.D.h){e.dash=H.dashId;damageEnemy(e,4,H.dashX,H.dashZ,{src:'dash'});shake=Math.max(shake,0.3);}}
     for(let i=0;i<cracks.length;i++){const c=cracks[i];if(c.alive&&Math.hypot(c.x-H.p.x,c.z-H.p.z)<c.s+1.9&&Math.abs(c.y-H.p.y)<5)breakCrack(c);}
-    if(H.dashT<=0){H.v.x*=0.22;H.v.z*=0.22;slashArc(H.p.x,H.p.y+1,H.p.z,H.face,1,1.6,0xffb08a);}
+    hitProps(H.p.x,H.p.z,1.6,H.p.y);
+    if(H.dashT<=0){H.v.x*=0.22;H.v.z*=0.22;slashArc(H.p.x,H.p.y+1,H.p.z,H.face,1,1.9,0xffb08a);slashArc(H.p.x,H.p.y+1.1,H.p.z,H.face,-1,1.6,0xfff0d0);
+      streak(H.dx0,H.dz0,H.p.x,H.p.z,H.p.y+0.9,1.5,0xff8a5a,0.45);streak(H.dx0,H.dz0,H.p.x,H.p.z,H.p.y+1.0,0.5,0xfff0d0,0.6);flash(H.p.x,H.p.y+1,H.p.z,0xffd0a0,7,0.25);
+      const n=6;for(let k=1;k<=n;k++){const px=lerp(H.dx0,H.p.x,k/n),pz=lerp(H.dz0,H.p.z,k/n);spikeFx(px,Math.max(groundH(px,pz),WATER),pz,1.5,0.2,1,0xff8a3a,0.4,k*0.02,0,0);}}
   }else{
     running=I.run&&mag>0.1&&!H.stLock&&H.grounded&&!H.swim;
     let sp=running?11.5:6.2;if(H.swim)sp=3.4;if(H.glide)sp=9.5;if(H.atkT>0&&H.grounded)sp*=0.35;if(H.castT>0)sp*=0.3;if(H.spinT>0)sp*=0.5;
@@ -591,6 +630,7 @@ function activateTower(tw){
   lightTower(tw);S.towersLit++;H.maxHp+=2;H.hp=H.maxHp;H.st=H.maxSt;S.respawn.set(tw.x+2.6,tw.y+0.5,tw.z+1.2);
   shockRing(tw.x,tw.y+0.7,tw.z,14,CYAN,0.9);shockRing(tw.x,tw.y+0.7,tw.z,7,0xffffff,0.6);
   for(let i=0;i<70;i++){const a=Math.random()*TAU,r=Math.random()*1.5;spark(tw.x+Math.cos(a)*r,tw.y+1+Math.random()*7,tw.z+Math.sin(a)*r,Math.cos(a)*2.5,6+Math.random()*10,Math.sin(a)*2.5,1.4,0.55,i%3?CYAN:0xffffff,3,0.4);}
+  pillar(tw.x,tw.y,tw.z,4,40,CYAN,1.2);spikeRing(tw.x,tw.z,5,12,3.4,0.3,1,CYAN,1,0.03,0.15);screenFlash('#bff8ff');
   shake=Math.max(shake,0.4);sfx('tower');hudHearts();hudTrack(true);addEnergy(100);
   banner(tw.name,'已点亮 · 生命上限 +1 · 这里成为新的落脚点');
   saveGame();
@@ -622,7 +662,7 @@ function updateObjects(dt,t){
     if(!tw.lit&&!tw.sealed&&started&&!H.dead&&H.grounded&&near)activateTower(tw);
     if(tw.sealed&&tw.kind==='summit'&&Math.hypot(hx-tw.x,hz-tw.z)<6)hint('seal3','塔被寒冰封住了。打倒霜卫，冰才会化开');}
   for(let i=0;i<cracks.length;i++){const c=cracks[i];if(!c.alive)continue;const k=0.5+0.5*Math.sin(t*2.5+c.id);c.glow.material.opacity=0.2+0.25*k;c.mat.emissiveIntensity=0.35+0.5*k;}
-  updateFloes(dt);updateHazards(dt);updateFields(dt,t);updateTarget(t);
+  updateFloes(dt);updateHazards(dt);updateFields(dt,t);updateTarget(t);updateProps(dt,t);updateTrials(dt,t);
   if(S.fin>0){S.fin-=dt;if(S.fin<=0)finale();}
   if(S.fireworks>0){S.fireworks-=dt;if(Math.random()<dt*5){const a=Math.random()*TAU,r=10+Math.random()*25;
     burst(hx+Math.cos(a)*r,H.p.y+14+Math.random()*14,hz+Math.sin(a)*r,40,10,[0xffd76a,0x74f2ff,0xff9fc6,0xb8ffe9][Math.floor(Math.random()*4)],0.7,1.3,0,5);sfx('pickup');}}
