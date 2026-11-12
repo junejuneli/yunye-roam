@@ -50,6 +50,8 @@ T.PlaneGeometry=class extends Geo{constructor(w,h,ws,hs){super();ws=ws||1;hs=hs|
  for(let j=0;j<=hs;j++)for(let i=0;i<=ws;i++){p[k++]=-w/2+i*w/ws;p[k++]=h/2-j*h/hs;p[k++]=0;}
  this.setAttribute('position',new Attr(p,3));this.setAttribute('normal',new Attr(new Float32Array(n*3).fill(0.577),3));
  const idx=[];for(let j=0;j<hs;j++)for(let i=0;i<ws;i++){const a=i+(ws+1)*j,b=i+(ws+1)*(j+1),c=i+1+(ws+1)*(j+1),d=i+1+(ws+1)*j;idx.push(a,b,d,b,c,d);}this.index={array:new Uint16Array(idx)};}};
-['SphereGeometry','BoxGeometry','CylinderGeometry','ConeGeometry','IcosahedronGeometry','DodecahedronGeometry','OctahedronGeometry','TorusGeometry','RingGeometry','CircleGeometry'].forEach(n=>{T[n]=class extends Geo{constructor(){super();for(let i=0;i<arguments.length;i++)if(typeof arguments[i]==='number'&&isNaN(arguments[i]))throw new Error(n+' NaN arg');this._fill(24);}};});
+['SphereGeometry','BoxGeometry','CylinderGeometry','ConeGeometry','IcosahedronGeometry','DodecahedronGeometry','OctahedronGeometry','TorusGeometry','RingGeometry','CircleGeometry','LatheGeometry','ShapeGeometry'].forEach(n=>{T[n]=class extends Geo{constructor(){super();for(let i=0;i<arguments.length;i++)if(typeof arguments[i]==='number'&&isNaN(arguments[i]))throw new Error(n+' NaN arg');this._fill(24);}};});
+T.Vector2=class{constructor(x,y){this.x=x||0;this.y=y||0;}};
+T.Shape=class{moveTo(){return this;}lineTo(){return this;}quadraticCurveTo(){return this;}};
 window.THREE=T;
 })();

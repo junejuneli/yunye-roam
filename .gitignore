@@ -2,3 +2,5 @@ test.html
 __pycache__/
 *.png
 .DS_Store
+dev.html
+node_modules/

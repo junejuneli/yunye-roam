@@ -70,7 +70,7 @@ sectorInst(pineGeo,treeMat,pines,(t,d,c)=>{d.position.set(t.x,t.y-0.25,t.z);d.ro
 sectorInst(leafGeo,treeMat,leafs,(t,d,c)=>{d.position.set(t.x,t.y-0.25,t.z);d.rotation.y=t.rot;d.scale.set(t.s,t.s*(0.9+t.v*0.25),t.s);
   if(t.cherry)c.set(t.v>0.5?0xffa3c6:0xffbcd6);else if(t.v>0.955)c.set(0xf2b445);else c.set(0x6dc350).offsetHSL((t.v-0.5)*0.07,0,(t.v-0.5)*0.12);},true);
 const rockGeo=jitter(new THREE.DodecahedronGeometry(1,0),0.16,5);
-const stoneMat=toon(0xffffff,{flatShading:true});
+const stoneMat=toon(0xffffff);
 sectorInst(rockGeo,stoneMat,rocks,(t,d,c)=>{d.position.set(t.x,t.y+t.s*0.18,t.z);d.rotation.set(t.v*3,t.rot,t.v*2);d.scale.set(t.s,t.s*0.72,t.s*(0.8+t.v*0.4));
   c.set(0xa6a091).offsetHSL(0,0,(t.v-0.5)*0.1);if(t.y>50)c.lerp(tc2.set(0xeef5f8),0.55);},true);
 

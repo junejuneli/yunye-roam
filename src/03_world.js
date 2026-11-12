@@ -14,7 +14,7 @@ const TOWERS=[
 TOWERS[0].g=site(290,-30,12);TOWERS[0].y=TOWERS[0].g+20;
 TOWERS[1].y=site(120,100,5,3.2);
 TOWERS[2].y=site(-150,70,9);
-TOWERS[3].y=site(PEAK.x,PEAK.z,8,PEAK.h-4);
+TOWERS[3].y=site(PEAK.x,PEAK.z,11,PEAK.h-5);
 for(let i=1;i<ISLETS.length;i++)site(ISLETS[i][0],ISLETS[i][1],4,3.4);
 const COLUMNS=[{x:276,z:-19,H:30},{x:45,z:268,H:41}];
 COLUMNS.forEach(c=>{c.y0=site(c.x,c.z,4);c.top=c.y0+c.H;});

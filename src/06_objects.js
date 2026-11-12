@@ -1,5 +1,5 @@
 /* ===== 建筑与可互动物 ===== */
-const stoneA=toon(0xc2bbaa,{flatShading:true}),stoneB=toon(0x958e80,{flatShading:true}),grassTop=toon(0x86cf5c),goldMat=toon(0xf2c14e),woodMat=toon(0x8a5a36);
+const stoneA=toon(0xc2bbaa),stoneB=toon(0x958e80),grassTop=toon(0x86cf5c),goldMat=toon(0xf2c14e),woodMat=toon(0x8a5a36);
 const AMBER=0xffa64d,CYAN=0x74f2ff;
 function mesh(parent,geo,mat,x,y,z,cast){const m=new THREE.Mesh(geo,mat);m.position.set(x||0,y||0,z||0);if(cast!==false)m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;}
 
@@ -31,11 +31,17 @@ TOWERS.forEach(t=>{const g=new THREE.Group();g.position.set(t.x,t.y,t.z);scene.a
   mesh(g,new THREE.CylinderGeometry(0.5,0.85,5.6,6),stoneA,0,3.8,0);
   mesh(g,new THREE.CylinderGeometry(1.25,0.5,0.7,8),stoneB,0,6.95,0);
   for(let i=0;i<4;i++){const a=i*Math.PI/2+0.4;mesh(g,new THREE.BoxGeometry(0.5,1.5,0.5),stoneB,Math.cos(a)*3,1.2,Math.sin(a)*3);}
-  t.lit=false;t.sealed=t.kind==='sealed';
+  t.lit=false;t.sealed=t.kind==='sealed'||t.kind==='summit';
+  t.ringsG=new THREE.Group();t.ringsG.position.y=8.5;g.add(t.ringsG);
   t.runeMat=basic(AMBER);
   [2.2,4.4].forEach(y=>{const r=new THREE.Mesh(new THREE.TorusGeometry(0.82-(y-2.2)*0.07,0.07,6,18),t.runeMat);r.rotation.x=Math.PI/2;r.position.y=y;g.add(r);});
   t.crystal=new THREE.Mesh(octGeo,basic(AMBER));t.crystal.position.y=8.5;t.crystal.scale.set(0.7,1.15,0.7);g.add(t.crystal);
   t.glow=glowSprite(AMBER,7,0.8);t.glow.position.y=8.5;g.add(t.glow);
+  [[1.5,0.5,0.2],[1.9,-0.4,1.3]].forEach(q=>{const r=new THREE.Mesh(new THREE.TorusGeometry(q[0],0.045,6,28),t.runeMat);r.rotation.set(Math.PI/2+q[1],0,q[2]);t.ringsG.add(r);});
+  for(let i=0;i<4;i++){const a=i*Math.PI/2,c=new THREE.Mesh(octGeo,t.runeMat);c.position.set(Math.cos(a)*2.3,Math.sin(a*2)*0.4,Math.sin(a)*2.3);c.scale.set(0.14,0.24,0.14);t.ringsG.add(c);}
+  if(t.kind==='summit'){const sm=new THREE.MeshPhongMaterial({color:0xcfefff,shininess:100,specular:0xffffff,transparent:true,opacity:0.82});t.seal=new THREE.Group();g.add(t.seal);
+    for(let i=0;i<9;i++){const a=i*TAU/9+0.3,r=1.6+(i%3)*0.75,h=2.6+(i%4)*1.1,c=new THREE.Mesh(octGeo,sm);c.position.set(Math.cos(a)*r,h*0.42,Math.sin(a)*r);c.scale.set(0.75+(i%2)*0.3,h,0.75+(i%3)*0.2);c.rotation.set(Math.cos(a)*0.3,a,Math.sin(a)*-0.3);t.seal.add(c);}
+    const sg=glowSprite(0x9fe8ff,9,0.5);sg.position.y=2.5;t.seal.add(sg);}
   t.beam=new THREE.Mesh(new THREE.CylinderGeometry(0.45,0.45,420,8,1,true),glowy(AMBER,0.22));t.beam.position.y=218;g.add(t.beam);
   addPlat(t.x,t.z,3.7,t.y+0.5,t.y-3);addCol(t.x,t.z,1.25).yMin=t.y-1;});
 function lightTower(t,quiet){t.lit=true;t.runeMat.color.set(CYAN);t.crystal.material.color.set(CYAN);t.glow.material.color.set(CYAN);t.glow.scale.set(11,11,1);
@@ -61,7 +67,7 @@ ISLES.forEach(s=>addChest(s.x+s.r*0.3,s.y,s.z-s.r*0.25));
 /* 裂岩：只有冲刺斩能击碎 */
 const crackGeo=jitter(new THREE.DodecahedronGeometry(1,1),0.14,31);
 const cracks=[];
-function addCrack(x,y,z,s,chest,tower){const mat=toon(0x7c6f6a,{flatShading:true,emissive:0x5a2408,emissiveIntensity:0.5});
+function addCrack(x,y,z,s,chest,tower){const mat=toon(0x7c6f6a,{emissive:0x5a2408,emissiveIntensity:0.5});
   const m=mesh(scene,crackGeo,mat,x,y+s*0.55,z);m.scale.set(s,s*0.85,s);m.rotation.y=x;
   const glow=glowSprite(0xff8a3a,s*3.2,0.35);glow.position.set(x,y+s*0.8,z);scene.add(glow);
   const c={id:cracks.length,x:x,y:y,z:z,s:s,m:m,mat:mat,glow:glow,alive:true,chest:chest||null,tower:tower||null,col:addCol(x,z,s*0.95)};cracks.push(c);return c;}
